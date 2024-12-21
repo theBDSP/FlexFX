@@ -22,6 +22,7 @@ FlexFXAudioProcessorEditor::FlexFXAudioProcessorEditor(FlexFXAudioProcessor& p)
 
 
 
+
 	setBufferedToImage(true);
 
 
@@ -49,7 +50,6 @@ FlexFXAudioProcessorEditor::FlexFXAudioProcessorEditor(FlexFXAudioProcessor& p)
 
 
 
-	//topLevelComp->preset->saveMenu->nameBarFontIndex = 0;
 	topLevelComp->preset->pc.saveMenuBKGDTop = BDSP_COLOR_BLACK;
 	topLevelComp->preset->pc.saveMenuBKGDBot = BDSP_COLOR_BLACK;
 	topLevelComp->preset->pc.saveMenuBKGD = BDSP_COLOR_DARK;
@@ -76,44 +76,11 @@ FlexFXAudioProcessorEditor::FlexFXAudioProcessorEditor(FlexFXAudioProcessor& p)
 
 	topLevelComp->Alert->setRelativeSize(0.75f, 0.6f);
 	topLevelComp->Alert->setFonts(2, 1);
-	//topLevelComp->logo->setColors({ bdsp::NamedColorsIdentifier(FXTypeNames->operator[](0)) });
-
-	//titleBar->addAndMakeVisible(topLevelComp->logo.get());
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 	topLevelComp->aspectRatio = aspecRatioClosed;
 
 	topLevelComp->sidebarAspectRatio = aspectRatioOpen;
-
-
-	//for (int i = 0; i < BDSP_NUMBER_OF_MACROS; ++i)
-	//{
-	//	Macros->getMacro(i)->getSlider()->setSliderColor(BDSP_COLOR_WHITE, BDSP_COLOR_COLOR);
-	//}
-
-
 
 
 
@@ -150,10 +117,7 @@ FlexFXAudioProcessorEditor::FlexFXAudioProcessorEditor(FlexFXAudioProcessor& p)
 
 
 	topLevelComp->addComponent(titleBar.get());
-	//================================================================================================================================================================================================
 
-//	routing = std::make_unique<RoutingSelector>(dynamic_cast<juce::AudioParameterChoice*>(audioProcessor.parameters->getParameter("FXRoutingID")), &GUIUniversals);
-//	topLevelComp->addComponent(routing.get());
 
 	//================================================================================================================================================================================================
 
@@ -207,7 +171,7 @@ FlexFXAudioProcessorEditor::FlexFXAudioProcessorEditor(FlexFXAudioProcessor& p)
 
 	//================================================================================================================================================================================================
 
-	std::function<void(juce::Graphics&)> paintOverFunc = [=](juce::Graphics& g)
+	topLevelComp->paintOverChildrenFunction = [=](juce::Graphics& g)
 	{
 		bdsp::drawDivider(g, juce::Line<float>(modArea.getRelativePoint(0.0, 0.0), modArea.getRelativePoint(1.0, 0.0)), GUIUniversals.colors.getColor(BDSP_COLOR_MID), GUIUniversals.dividerSize);
 		bdsp::drawDivider(g, juce::Line<float>(macroArea.getRelativePoint(0.0, 0.0), macroArea.getRelativePoint(0.0, 1.0)), GUIUniversals.colors.getColor(BDSP_COLOR_MID), GUIUniversals.dividerSize);
@@ -228,7 +192,7 @@ FlexFXAudioProcessorEditor::FlexFXAudioProcessorEditor(FlexFXAudioProcessor& p)
 		g.drawRoundedRectangle(juce::Rectangle<float>().leftTopRightBottom(modTabs->getX(), macroArea.getY(), macroArea.getRight(), modTabs->getBottom()).expanded(GUIUniversals.dividerSize / 3), GUIUniversals.roundedRectangleCurve, GUIUniversals.dividerSize / 3);
 
 	};
-	topLevelComp->paintOverChildrenFunction = paintOverFunc;
+
 
 
 	//================================================================================================================================================================================================
@@ -271,18 +235,6 @@ void FlexFXAudioProcessorEditor::paint(juce::Graphics& g)
 
 
 	g.fillRoundedRectangle(macroArea, GUIUniversals.roundedRectangleCurve);
-
-	//juce::Path mod, macro;
-	//mod.addRoundedRectangle(modArea.getX(), modArea.getY(), modArea.getWidth(), modArea.getHeight(), GUIUniversals.roundedRectangleCurve, GUIUniversals.roundedRectangleCurve, true, false, false, false);
-	//macro.addRoundedRectangle(macroArea.getX(), macroArea.getY(), macroArea.getWidth(), modTabs->getY() - macroArea.getY(), GUIUniversals.roundedRectangleCurve, GUIUniversals.roundedRectangleCurve, false, true, false, false);
-
-	//g.setColour(GUIUniversals.colors.getColor(BDSP_COLOR_BLACK));
-	////g.fillPath(mod);
-	//g.fillPath(macro);
-
-
-
-
 
 }
 
@@ -712,72 +664,33 @@ void FlexFXAudioProcessorEditor::initBitcrushes()
 
 		//================================================================================================================================================================================================
 
+		createRangedCircleSlider("Bit Crush" + name + " Depth", bitcrushSection, bitcrushDepthSliders, color, "Bit Depth");
 
-		auto depthName = "Bit Crush" + name + " Depth";
-		bitcrushDepthSliders.add(new bdsp::RangedCircleSlider(&GUIUniversals, depthName));
-		bdsp::CircleSlider& currentDepth = *bitcrushDepthSliders[i];
-
-
-
-
-
-		bitcrushSection->addAndMakeVisible(bitcrushDepthSliders[i]);
-		currentDepth.attach(*audioProcessor.parameters.get(), currentDepth.getComponentID());
-
-		currentDepth.setSliderColor(color, BDSP_COLOR_WHITE);
-		currentDepth.label.setTitle(juce::String("Bit Depth"));
-		currentDepth.initText();
-
-		currentDepth.setHintBarText("Amplitude resolution of Bit Crush " + name);
-
-		//================================================================================================================================================================================================
-		auto rateName = "Bit Crush" + name + " Rate";
-		bitcrushRateSliders.add(new bdsp::RangedCircleSlider(&GUIUniversals, rateName));
-		bdsp::CircleSlider& currentRate = *bitcrushRateSliders[i];
-
-
-
-
-
-		bitcrushSection->addAndMakeVisible(bitcrushRateSliders[i]);
-		currentRate.attach(*audioProcessor.parameters.get(), currentRate.getComponentID());
-
-		currentRate.setSliderColor(color, BDSP_COLOR_WHITE);
-		currentRate.label.setTitle(juce::String("Rate"));
-		currentRate.initText();
-
-		currentRate.setHintBarText("Sampling rate of Bit Crush " + name);
-
+		bitcrushDepthSliders.getLast()->setHintBarText("Amplitude resolution of Bit Crush " + name);
 
 		//================================================================================================================================================================================================
 
 
-		auto mixName = "FX " + name + " Mix";
-		bitcrushMixSliders.add(new bdsp::RangedCircleSlider(&GUIUniversals, mixName));
-		bdsp::CircleSlider& currentMix = *bitcrushMixSliders[i];
+		createRangedCircleSlider("Bit Crush" + name + " Rate", bitcrushSection, bitcrushRateSliders, color, "Rate");
 
+		bitcrushRateSliders.getLast()->setHintBarText("Sampling rate of Bit Crush " + name);
 
+		//================================================================================================================================================================================================
 
+		createRangedCircleSlider("FX" + name + " Mix", bitcrushSection, bitcrushMixSliders, color, "Mix");
 
-
-		bitcrushSection->addAndMakeVisible(bitcrushMixSliders[i]);
-		currentMix.attach(*audioProcessor.parameters.get(), currentMix.getComponentID());
-
-		currentMix.setSliderColor(color, BDSP_COLOR_WHITE);
-		currentMix.label.setTitle(juce::String("Mix"));
-		currentMix.initText();
-
-		currentMix.setHintBarText("Dry/Wet mix of Bit Crush " + name);
+		bitcrushMixSliders.getLast()->setHintBarText("Dry/Wet mix of Bit Crush " + name);
 
 
 
 		//================================================================================================================================================================================================
 
-		bitcrushVisualizers.add(new bdsp::BitCrushVisualizer(&GUIUniversals, &currentDepth, &currentRate, &bitcrushMixSliders[i]->slider));
+		bitcrushVisualizers.add(new bdsp::BitCrushVisualizer(&GUIUniversals, &bitcrushDepthSliders.getLast()->slider, &bitcrushRateSliders.getLast()->slider, &bitcrushMixSliders.getLast()->slider));
 		auto currentVis = bitcrushVisualizers[i];
 		bitcrushSection->addAndMakeVisible(currentVis);
 		currentVis->setColor(color);
 		currentVis->setBackgroundColor(BDSP_COLOR_PURE_BLACK, BDSP_COLOR_BLACK);
+		currentVis->getVis()->setScaling(0.9, 0.9);
 
 
 
@@ -1369,7 +1282,7 @@ void FlexFXAudioProcessorEditor::initRingMods()
 
 
 		//================================================================================================================================================================================================
-		ringModVisualizers.add(new bdsp::RingModVisualizer(&GUIUniversals, &audioProcessor.lookups, dynamic_cast<FlexFXAudioProcessor*>(&audioProcessor)->subBlockSpec->sampleRate));
+		ringModVisualizers.add(new bdsp::RingModVisualizer(&GUIUniversals, &audioProcessor.lookups, sampleRate));
 		auto currentVis = ringModVisualizers[i]->getVis();
 		ringModSection->addAndMakeVisible(ringModVisualizers[i]);
 		currentVis->setColor(color, BDSP_COLOR_DARK);
@@ -1378,7 +1291,6 @@ void FlexFXAudioProcessorEditor::initRingMods()
 		currentVis->skewParam = skew->getControlParamter();
 		currentVis->freqParam = freq->getControlParamter();
 		currentVis->mixParam = mix->getControlParamter();
-		//currentVis->sampleRate = audioProcessor.subBlockSpec->sampleRate;
 
 		ringModSourceCombos.getLast()->onChange(ringModSourceCombos.getLast()->getIndex());
 	}
@@ -2439,14 +2351,14 @@ FlexFXAudioProcessorEditor::AnimatedTitle::AnimatedTitle(FlexFXAudioProcessorEdi
 	for (int i = 1; i < e->FXTypeNames->size(); ++i)
 	{
 		const auto& c = getColor(e->FXTypeNames->operator[](i));
-		if (c!=prev)
+		if (c != prev)
 		{
 			colors.add(c);
 			prev = c;
 		}
 	}
 
-    auto comparator = bdsp::ColorComparator(bdsp::colorChannel::Hue);
+	auto comparator = bdsp::ColorComparator(bdsp::colorChannel::Hue);
 	colors.sort(comparator);
 
 	for (const auto& c : colors)
