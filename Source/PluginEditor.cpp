@@ -561,7 +561,7 @@ void FlexFXAudioProcessorEditor::initDistortions()
 		juce::Array<juce::Path> DistortionTypeShapes;
 		for (int i = 0; i < DistortionTypeParam->choices.size(); ++i)
 		{
-			auto p = GUIUniversals.commonPaths.distortionPaths.getPath(audioProcessor.lookups.distortionLookups->stringToDistortionType(DistortionTypeParam->choices[i]));
+			auto p = audioProcessor.lookups.distortionLookups->nameToDistortionType(DistortionTypeParam->choices[i])->getIcon(false);
 			juce::PathStrokeType(p.getBounds().getWidth() * 0.1).createStrokedPath(p, p);
 			DistortionTypeShapes.add(p);
 		}
@@ -576,7 +576,7 @@ void FlexFXAudioProcessorEditor::initDistortions()
 		{
 			//DistortionVisualizer->setType(static_cast<bdsp::dsp::DistortionLookupTables>(1 << i));
 			auto text = DistortionTypeParam->getCurrentChoiceName();
-			auto type = audioProcessor.lookups.distortionLookups->stringToDistortionType(text);
+			auto type = audioProcessor.lookups.distortionLookups->nameToDistortionType(text);
 
 			currentVis->setType(type);
 

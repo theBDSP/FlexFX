@@ -25,7 +25,7 @@
     </GROUP>
   </MAINGROUP>
   <MODULES>
-    <MODULE id="bdsp_lib" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="BDSP_Library" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_audio_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_audio_devices" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_audio_formats" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
@@ -67,7 +67,7 @@
         <MODULEPATH id="juce_gui_basics" path="../JUCE/modules"/>
         <MODULEPATH id="juce_gui_extra" path="../JUCE/modules"/>
         <MODULEPATH id="juce_opengl" path="../JUCE/modules"/>
-        <MODULEPATH id="bdsp_lib" path="../user modules"/>
+        <MODULEPATH id="BDSP_Library" path="../user modules"/>
       </MODULEPATHS>
     </VS2022>
     <XCODE_MAC targetFolder="Builds/MacOSX">
@@ -90,7 +90,7 @@
         <MODULEPATH id="juce_gui_basics" path="../JUCE/modules"/>
         <MODULEPATH id="juce_gui_extra" path="../JUCE/modules"/>
         <MODULEPATH id="juce_opengl" path="../JUCE/modules"/>
-        <MODULEPATH id="bdsp_lib" path="../user modules"/>
+        <MODULEPATH id="BDSP_Library" path="../user modules"/>
       </MODULEPATHS>
     </XCODE_MAC>
   </EXPORTFORMATS>
