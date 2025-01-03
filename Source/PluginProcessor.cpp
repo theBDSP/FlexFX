@@ -244,24 +244,28 @@ juce::AudioProcessorValueTreeState::ParameterLayout FlexFXAudioProcessor::create
 
 	//================================================================================================================================================================================================
 	//Distortion
-	auto distrotionTypes = lookups.distortionLookups->getOrderedDistortionNamesForFlags(juce::Array<bdsp::dsp::DistortionTypes>(
-		bdsp::dsp::DistortionTypes::ArcSinH,
-		bdsp::dsp::DistortionTypes::TanH,
-		bdsp::dsp::DistortionTypes::HardClip,
-		bdsp::dsp::DistortionTypes::SoftClip,
-		bdsp::dsp::DistortionTypes::PositiveClip,
-		bdsp::dsp::DistortionTypes::DoubleBump,
-		bdsp::dsp::DistortionTypes::TanHPinch,
-		bdsp::dsp::DistortionTypes::SineWaveFold,
-		bdsp::dsp::DistortionTypes::InversePower
-	));
+	juce::StringArray distortionTypes(
+		bdsp::dsp::DistortionTypes::Drive<float>::Name,
+		bdsp::dsp::DistortionTypes::Saturation<float>::Name,
+		bdsp::dsp::DistortionTypes::Tape<float>::Name,
+		bdsp::dsp::DistortionTypes::HardClip<float>::Name,
+		bdsp::dsp::DistortionTypes::SoftClip<float>::Name,
+		bdsp::dsp::DistortionTypes::Power<float>::Name,
+		bdsp::dsp::DistortionTypes::Fuzz<float>::Name,
+		bdsp::dsp::DistortionTypes::Bump<float>::Name,
+		bdsp::dsp::DistortionTypes::Pinch<float>::Name,
+		bdsp::dsp::DistortionTypes::Tube<float>::Name,
+		bdsp::dsp::DistortionTypes::SinFold<float>::Name,
+		bdsp::dsp::DistortionTypes::TriFold<float>::Name
+	);
+
 	for (int i = 0; i < numFXSlots; ++i)
 	{
-		auto DriveTypeName = "Distortion " + juce::String(i + 1) + "  Type";
+		auto DriveTypeName = "Distortion " + juce::String(i + 1) + " Type";
 		auto DriveTypeID = "Distortion" + juce::String(i + 1) + "TypeID";
 
 
-		out.add(std::make_unique<juce::AudioParameterChoice>(DriveTypeID, DriveTypeName, distrotionTypes, 0));
+		out.add(std::make_unique<juce::AudioParameterChoice>(DriveTypeID, DriveTypeName, distortionTypes, 0));
 	}
 
 	auto gainAtt = parameterAttributes.getFloatAttribute("Gain");
