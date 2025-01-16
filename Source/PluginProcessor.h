@@ -69,7 +69,7 @@ public:
 	juce::OwnedArray<bdsp::dsp::EmptyProcessor<float>> emptyProcessors;
 	juce::OwnedArray<bdsp::dsp::VariableDistortion<float>> distortions;
 	juce::OwnedArray<bdsp::dsp::BitCrushDistortion<float>> bitCrushes;
-	juce::OwnedArray<bdsp::dsp::SVF_SecondOrderBiquadFilter<float>> filters;
+	juce::OwnedArray<bdsp::dsp::CascadedFilter<float, bdsp::dsp::BiQuadFilters::StateVariableFilter<float>, 2>> filters;
 	juce::OwnedArray<bdsp::dsp::StereoPitchShifter<float>> pitchShifters;
 	juce::OwnedArray<bdsp::dsp::RingModulation<float>> ringMods;
 	juce::OwnedArray<bdsp::dsp::Chorus<float>> choruses;
@@ -97,7 +97,7 @@ private:
 	juce::OwnedArray<bdsp::dsp::ProcessorChain<float>> chains;
 
 	bdsp::ParameterPointerBool routingParam;
-	
+
 	bdsp::ParameterPointerBool chainBypassParams[numFXChains];
 
 	bdsp::ParameterPointerControl parallelMixParam;
@@ -162,7 +162,7 @@ private:
 	bdsp::ParameterPointerControl pitchShiftRightParams[numFXSlots];
 
 	bdsp::ParameterPointerBool pitchShiftLinkParams[numFXSlots];
-	
+
 	//================================================================================================================================================================================================
 	//RingMod
 

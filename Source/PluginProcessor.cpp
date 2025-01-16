@@ -84,7 +84,7 @@ FlexFXAudioProcessor::FlexFXAudioProcessor()
 		emptyProcessors.add(new bdsp::dsp::EmptyProcessor<float>());
 		distortions.add(new bdsp::dsp::VariableDistortion<float>(&lookups));
 		bitCrushes.add(new bdsp::dsp::BitCrushDistortion<float>(&lookups));
-		filters.add(new bdsp::dsp::SVF_SecondOrderBiquadFilter<float>(&lookups));
+		filters.add(new bdsp::dsp::CascadedFilter<float, bdsp::dsp::BiQuadFilters::StateVariableFilter<float>, 2>(&lookups));
 		pitchShifters.add(new bdsp::dsp::StereoPitchShifter<float>());
 		ringMods.add(new bdsp::dsp::RingModulation<float>(&lookups));
 
