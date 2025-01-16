@@ -108,7 +108,7 @@ FlexFXAudioProcessor::FlexFXAudioProcessor()
 		panners.getLast()->setOutputSource(pannerMeterSources.getLast());
 
 
-		noises.add(new bdsp::dsp::ColoredNoiseStereo<float>());
+		noises.add(new bdsp::dsp::Noise::StereoNoiseGenerator<float, bdsp::dsp::Noise::ColoredNoise<float>>());
 
 
 		EQs.add(new bdsp::dsp::ParametricEQ<float>(&lookups, EQNumBands - 2));

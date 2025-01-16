@@ -87,7 +87,7 @@ public:
 	juce::OwnedArray<bdsp::dsp::SampleSource<float>> ringModSources;
 
 	juce::OwnedArray<bdsp::dsp::Compressor<float>> compressors;
-	juce::OwnedArray<bdsp::dsp::ColoredNoiseStereo<float>> noises;
+	juce::OwnedArray<bdsp::dsp::Noise::StereoNoiseGenerator<float, bdsp::dsp::Noise::ColoredNoise<float>>> noises;
 
 	juce::OwnedArray<bdsp::dsp::ParametricEQ<float>> EQs;
 private:
