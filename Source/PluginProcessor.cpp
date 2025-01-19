@@ -789,7 +789,7 @@ void FlexFXAudioProcessor::processBlockInit(juce::AudioBuffer<float>& buffer, ju
 		{
 		case 0: // Tone
 		{
-			ringMods.getUnchecked(i)->setSource(bdsp::dsp::RingModulation<float>::RingModSource::Tone);
+			ringMods.getUnchecked(i)->setModSource(bdsp::dsp::RingModulation<float>::RingModSource::Tone);
 			auto* gen = ringMods.getUnchecked(i)->getToneGenerator();
 			gen->setShape(ringModShapeParams[i].get());
 			gen->setSkew(ringModSkewParams[i].get());
@@ -797,11 +797,11 @@ void FlexFXAudioProcessor::processBlockInit(juce::AudioBuffer<float>& buffer, ju
 			break;
 		}
 		case 1: // Side-Chain
-			ringMods.getUnchecked(i)->setSource(bdsp::dsp::RingModulation<float>::RingModSource::Sidechain);
+			ringMods.getUnchecked(i)->setModSource(bdsp::dsp::RingModulation<float>::RingModSource::Sidechain);
 			ringMods.getUnchecked(i)->setSidechain(&sidechainBuffer);
 			break;
 		case 2: // Self
-			ringMods.getUnchecked(i)->setSource(bdsp::dsp::RingModulation<float>::RingModSource::Self);
+			ringMods.getUnchecked(i)->setModSource(bdsp::dsp::RingModulation<float>::RingModSource::Self);
 			break;
 		}
 
