@@ -85,7 +85,7 @@ FlexFXAudioProcessor::FlexFXAudioProcessor()
 		distortions.add(new bdsp::dsp::VariableDistortion<float>(&lookups));
 		bitCrushes.add(new bdsp::dsp::BitCrushDistortion<float>(&lookups));
 		filters.add(new bdsp::dsp::CascadedFilter<float, bdsp::dsp::BiQuadFilters::StateVariableFilter<float>, 2>(&lookups));
-		pitchShifters.add(new bdsp::dsp::StereoPitchShifter<float>());
+		pitchShifters.add(new bdsp::dsp::PitchShifter<float>());
 		ringMods.add(new bdsp::dsp::RingModulation<float>(&lookups));
 
 		ringModSources.add(new bdsp::dsp::SampleSource<float>("RingMod" + juce::String(i + 1)));
@@ -778,7 +778,8 @@ void FlexFXAudioProcessor::processBlockInit(juce::AudioBuffer<float>& buffer, ju
 		//Pitch Shift
 		auto r = pitchShiftLinkParams[i].get() ? pitchShiftLeftParams[i].get() : pitchShiftRightParams[i].get();
 
-		pitchShifters.getUnchecked(i)->setShiftAmount(pitchShiftLeftParams[i].get(), r);
+		pitchShifters.getUnchecked(i)->setShiftAmount(0, pitchShiftLeftParams[i].get());
+		pitchShifters.getUnchecked(i)->setShiftAmount(1, r);
 
 		//================================================================================================================================================================================================
 		//RingMod
