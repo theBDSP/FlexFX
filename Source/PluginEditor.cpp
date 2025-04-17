@@ -548,8 +548,8 @@ void FlexFXAudioProcessorEditor::initDistortions()
 		distortionVisualizers.add(new bdsp::DistortionVisualizer(&GUIUniversals, &audioProcessor.lookups, &currentAmount, &distortionMixSliders[i]->slider, currentAGC));
 		auto currentVis = distortionVisualizers[i];
 		distSection->addAndMakeVisible(currentVis);
-		currentVis->setColor(color);
-		currentVis->setBackgroundColor(BDSP_COLOR_PURE_BLACK, BDSP_COLOR_BLACK);
+		currentVis->getVis()->setColor(color);
+		currentVis->getVis()->setBackgroundColor(BDSP_COLOR_PURE_BLACK, BDSP_COLOR_BLACK);
 
 		//DistortionVisualizer->isScaled = true;
 
@@ -690,7 +690,7 @@ void FlexFXAudioProcessorEditor::initBitcrushes()
 		bitcrushSection->addAndMakeVisible(currentVis);
 		currentVis->setColor(color);
 		currentVis->setBackgroundColor(BDSP_COLOR_PURE_BLACK, BDSP_COLOR_BLACK);
-		currentVis->getVis()->setScaling(0.9, 0.9);
+		currentVis->setScaling(0.9, 0.9);
 
 
 
@@ -822,8 +822,8 @@ void FlexFXAudioProcessorEditor::initFilters()
 		filterVisualizers.add(new bdsp::FilterVisualizer(&GUIUniversals, dynamic_cast<FlexFXAudioProcessor*>(&audioProcessor)->filters[i], &currentType, &currentFreq, &currentQ, &filterMixSliders[i]->slider));
 		auto currentVis = filterVisualizers[i];
 		filterSection->addAndMakeVisible(currentVis);
-		currentVis->setColor(color);
-		currentVis->setBackgroundColor(BDSP_COLOR_PURE_BLACK, BDSP_COLOR_BLACK);
+		currentVis->getVis()->setColor(color);
+		currentVis->getVis()->setBackgroundColor(BDSP_COLOR_PURE_BLACK, BDSP_COLOR_BLACK);
 
 	}
 }
@@ -898,7 +898,7 @@ void FlexFXAudioProcessorEditor::initEQs()
 
 		EQVisualizers.add(new bdsp::EQVisualizer(&GUIUniversals, dynamic_cast<FlexFXAudioProcessor*>(&audioProcessor)->EQs[i], 100));
 
-		EQVisualizers.getLast()->setColor(color);
+		EQVisualizers.getLast()->getVis()->setColor(color);
 
 		EQVisualizers.getLast()->getVis()->setGlobalSliders(&globalGain->slider, &mix->slider);
 
@@ -1150,14 +1150,13 @@ void FlexFXAudioProcessorEditor::initPitchShifts()
 
 		//================================================================================================================================================================================================
 
-		pitchShiftVisualizers.add(new bdsp::PitchShifterVisualizer(&GUIUniversals, &currentLeft, &currentRight, &pitchShiftMixSliders[i]->slider));
+		pitchShiftVisualizers.add(new bdsp::PitchShifterVisualizer(&GUIUniversals, pitchShiftLeftSliders[i]->getControlParamter(), pitchShiftRightSliders[i]->getControlParamter(), pitchShiftMixSliders[i]->getControlParamter()));
 		auto currentVis = pitchShiftVisualizers[i];
 		pitchShiftSection->addAndMakeVisible(currentVis);
-		currentVis->setColor(color, BDSP_COLOR_DARK);
+		currentVis->setColor(color);
 		currentVis->setBackgroundColor(BDSP_COLOR_PURE_BLACK, BDSP_COLOR_BLACK);
 
-		currentVis->setBarWidth(0.01f, 0.0001f);
-		currentVis->setDotSize(0.05f);
+
 
 		//================================================================================================================================================================================================
 
@@ -1286,6 +1285,7 @@ void FlexFXAudioProcessorEditor::initRingMods()
 		auto currentVis = ringModVisualizers[i]->getVis();
 		ringModSection->addAndMakeVisible(ringModVisualizers[i]);
 		currentVis->setColor(color, BDSP_COLOR_DARK);
+		currentVis->setScaling(0.95, 0.9);
 
 		currentVis->shapeParam = shape->getControlParamter();
 		currentVis->skewParam = skew->getControlParamter();
@@ -1437,7 +1437,7 @@ void FlexFXAudioProcessorEditor::initChoruses()
 		//================================================================================================================================================================================================
 		chorusVisualizers.add(new bdsp::ChorusVisualizer(&GUIUniversals, dynamic_cast<FlexFXAudioProcessor*>(&audioProcessor)->choruses[i], &audioProcessor.lookups));
 		chorusSection->addAndMakeVisible(chorusVisualizers[i]);
-		auto currentVis = chorusVisualizers[i]->getVis();
+		auto currentVis = chorusVisualizers[i];
 		currentVis->setColor(color);
 		currentVis->setBackgroundColor(BDSP_COLOR_PURE_BLACK, BDSP_COLOR_BLACK);
 
@@ -1619,9 +1619,6 @@ void FlexFXAudioProcessorEditor::initFlangers()
 		currentVis->setColor(color);
 		currentVis->setBackgroundColor(BDSP_COLOR_PURE_BLACK, BDSP_COLOR_BLACK);
 
-		currentVis->baseParam = flangerBaseSliders[i]->getControlParamter();
-		currentVis->depthParam = flangerDepthSliders[i]->getControlParamter();
-		currentVis->stereoWidthParam = flangerStereoWidthSliders[i]->getControlParamter();
 		currentVis->feedbackParam = flangerFeedbackSliders[i]->getControlParamter();
 		currentVis->mixParam = flangerMixSliders[i]->getControlParamter();
 	}
@@ -2032,7 +2029,7 @@ void FlexFXAudioProcessorEditor::initNoises()
 		noiseVisualizers.getLast()->getVis()->colorParam = c->getControlParamter();
 		//noiseVisualizers.getLast()->getVis()->mixParam = dry->getControlParamter();
 
-		noiseVisualizers.getLast()->setColor(color);
+		noiseVisualizers.getLast()->getVis()->setColor(color);
 
 		NoiseSection->addAndMakeVisible(noiseVisualizers.getLast());
 
