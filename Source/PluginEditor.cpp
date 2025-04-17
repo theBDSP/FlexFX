@@ -1285,6 +1285,7 @@ void FlexFXAudioProcessorEditor::initRingMods()
 		auto currentVis = ringModVisualizers[i]->getVis();
 		ringModSection->addAndMakeVisible(ringModVisualizers[i]);
 		currentVis->setColor(color, BDSP_COLOR_DARK);
+		currentVis->setScaling(0.95, 0.9);
 
 		currentVis->shapeParam = shape->getControlParamter();
 		currentVis->skewParam = skew->getControlParamter();
