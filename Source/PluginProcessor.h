@@ -16,10 +16,6 @@
 
 
 
-constexpr auto numFXSlots = 8;
-constexpr auto numFXPerChain = 4;
-constexpr auto numFXChains = 2;
-
 #define EQNumBands 5
 
 //==============================================================================
@@ -47,7 +43,7 @@ public:
 	//==============================================================================
 
 
-
+	void swapSlotParameterValues(int idx1, int idx2);
 
 	void loadParameterPointers();
 	void initParameters()override;
@@ -63,93 +59,106 @@ public:
 
 
 	juce::StringArray FXTypeNames;
-	enum FXTypes :int { None, Distortion, BitCrush, Filter, EQ, PitchShift, RingMod, Chorus, Flanger, Phaser, Panner, Noise, NUM };
+	enum FXTypes :int { Distortion, BitCrush, Filter, ParamEQ, PitchShift, RingMod, Chorus, Flanger, Phaser, Panner, Noise };
 
 
-	juce::OwnedArray<bdsp::dsp::EmptyProcessor<float>> emptyProcessors;
-	juce::OwnedArray<bdsp::dsp::VariableDistortion<float>> distortions;
-	juce::OwnedArray<bdsp::dsp::BitCrushDistortion<float>> bitCrushes;
-	juce::OwnedArray<bdsp::dsp::CascadedFilter<float, bdsp::dsp::BiQuadFilters::StateVariableFilter<float>, 2>> filters;
-	juce::OwnedArray<bdsp::dsp::PitchShifter<float>> pitchShifters;
-	juce::OwnedArray<bdsp::dsp::RingModulation<float>> ringMods;
-	juce::OwnedArray<bdsp::dsp::Chorus<float>> choruses;
-	juce::OwnedArray<bdsp::dsp::Flanger<float>> flangers;
-	juce::OwnedArray<bdsp::dsp::Phaser<float>> phasers;
+	std::unique_ptr<bdsp::dsp::EmptyProcessor<float>> emptyProcessor;
+	std::unique_ptr<bdsp::dsp::VariableDistortion<float>> distortion;
+	std::unique_ptr<bdsp::dsp::BitCrushDistortion<float>> bitCrusher;
+	std::unique_ptr<bdsp::dsp::CascadedFilter<float, bdsp::dsp::BiQuadFilters::StateVariableFilter<float>, 2>> filter;
+	std::unique_ptr<bdsp::dsp::ParametricEQ<float>> EQ;
+	std::unique_ptr<bdsp::dsp::PitchShifter<float>> pitchShifter;
+	std::unique_ptr<bdsp::dsp::RingModulation<float>> ringMod;
+	std::unique_ptr<bdsp::dsp::Chorus<float>> chorus;
+	std::unique_ptr<bdsp::dsp::Flanger<float>> flanger;
+	std::unique_ptr<bdsp::dsp::Phaser<float>> phaser;
 
 
-	juce::OwnedArray<bdsp::dsp::StereoWidener<float>> panners;
+	std::unique_ptr<bdsp::dsp::StereoWidener<float>> panner;
 
-	juce::OwnedArray<bdsp::LevelMeterController<float>> pannerMeterControllers;
-	juce::OwnedArray<bdsp::dsp::SampleSource<float>> pannerMeterSources;
+	std::unique_ptr<bdsp::LevelMeterController<float>> pannerMeterController;
+	std::unique_ptr<bdsp::dsp::SampleSource<float>> pannerMeterSource;
 
 
-	juce::OwnedArray<bdsp::SpectrogramController> ringModControllers;
-	juce::OwnedArray<bdsp::dsp::SampleSource<float>> ringModSources;
+	std::unique_ptr<bdsp::dsp::SampleSource<float>> ringModSource;
 
-	juce::OwnedArray<bdsp::dsp::Compressor<float>> compressors;
-	juce::OwnedArray<bdsp::dsp::Noise::StereoNoiseGenerator<float, bdsp::dsp::Noise::ColoredNoise<float>>> noises;
+	std::unique_ptr<bdsp::dsp::Compressor<float>> compressor;
+	std::unique_ptr<bdsp::dsp::Noise::StereoNoiseGenerator<float, bdsp::dsp::Noise::ColoredNoise<float>>> noise;
 
-	juce::OwnedArray<bdsp::dsp::ParametricEQ<float>> EQs;
+
+
+
+	struct GenericFXParameters
+	{
+		void init(juce::AudioProcessorValueTreeState* APVTS, const juce::String& name)
+		{
+			mixParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(APVTS->getParameter(name + "MixID")));
+			bypassParam.setParameter(dynamic_cast<juce::AudioParameterBool*>(APVTS->getParameter(name + "BypassID")));
+			indexParam.setParameter(dynamic_cast<juce::AudioParameterInt*>(APVTS->getParameter(name + "IndexID")));
+		}
+		void load()
+		{
+			mixParam.load();
+			bypassParam.load();
+			indexParam.load();
+		}
+
+
+
+		bdsp::ParameterPointerControl mixParam;
+		bdsp::ParameterPointerBool bypassParam;
+		bdsp::ParameterPointerInt indexParam;
+	};
+
+	juce::OwnedArray<GenericFXParameters> generics;
+
+	void reorderProcessors(int indexMoved, int indexMovedTo);
 private:
 
+	juce::Array<int> processorOrder;
 
-	juce::Array <bdsp::dsp::BaseProcessingUnit<float>*> currentFXs;
-	juce::OwnedArray<bdsp::dsp::ProcessorChain<float>> chains;
-
-	bdsp::ParameterPointerBool routingParam;
-
-	bdsp::ParameterPointerBool chainBypassParams[numFXChains];
-
-	bdsp::ParameterPointerControl parallelMixParam;
-
-	bool chainIncluded[numFXChains];
-	juce::OwnedArray<bdsp::dsp::DelayLineBase<float>> latencyAdjusters; // changes input delay for each chain to align for latency of FX
-
-	int fxLatency[numFXSlots];
-	int chainLatency[numFXChains];
-
-	float maxSingleFXLatency = 0;
-
-	juce::OwnedArray<juce::AudioBuffer<float>> chainBuffers;
+	std::unique_ptr<bdsp::dsp::ProcessorChain<float>> chain;
 
 
 
-	bdsp::ParameterPointerControl fxMixParams[numFXSlots];
+	std::unique_ptr<bdsp::dsp::DelayLineBase<float>> latencyAdjuster; // changes input delay for each chain to align for latency of FX
+
+	int fxLatency;
 
 
-	bdsp::ParameterPointerChoice fxTypeParams[numFXSlots];
 
-
-	bdsp::ParameterPointerBool fxBypassParams[numFXSlots];
 
 	//================================================================================================================================================================================================
 	//Distortion 
 
-	bdsp::ParameterPointerChoice distortionTypeParams[numFXSlots];
+	bdsp::ParameterPointerChoice distortionTypeParam;
 
-	bdsp::ParameterPointerControl distortionPreGainParams[numFXSlots];
+	bdsp::ParameterPointerControl distortionPreGainParam;
 
-	bdsp::ParameterPointerControl distortionAmountParams[numFXSlots];
+	bdsp::ParameterPointerControl distortionAmountParam;
 
-	bdsp::ParameterPointerBool distortionAGCParams[numFXSlots];
+	bdsp::ParameterPointerBool distortionAGCParam;
+
 
 	//================================================================================================================================================================================================
 	//Bit Crush 
 
 
-	bdsp::ParameterPointerControl bitcrushDepthParams[numFXSlots];
+	bdsp::ParameterPointerControl bitcrushDepthParam;
 
-	bdsp::ParameterPointerControl bitcrushRateParams[numFXSlots];
+	bdsp::ParameterPointerControl bitcrushRateParam;
+
 
 	//================================================================================================================================================================================================
 	//Filter
 
 
-	bdsp::ParameterPointerControl filterTypeParams[numFXSlots];
+	bdsp::ParameterPointerControl filterTypeParam;
 
-	bdsp::ParameterPointerControl filterFreqParams[numFXSlots];
+	bdsp::ParameterPointerControl filterFreqParam;
 
-	bdsp::ParameterPointerControl filterQParams[numFXSlots];
+	bdsp::ParameterPointerControl filterQParam;
+
 
 
 
@@ -157,96 +166,101 @@ private:
 	//PitchShift
 
 
-	bdsp::ParameterPointerControl pitchShiftLeftParams[numFXSlots];
+	bdsp::ParameterPointerControl pitchShiftLeftParam;
 
-	bdsp::ParameterPointerControl pitchShiftRightParams[numFXSlots];
+	bdsp::ParameterPointerControl pitchShiftRightParam;
 
-	bdsp::ParameterPointerBool pitchShiftLinkParams[numFXSlots];
+	bdsp::ParameterPointerBool pitchShiftLinkParam;
+
+
 
 	//================================================================================================================================================================================================
 	//RingMod
 
 
-	bdsp::ParameterPointerChoice ringModSourceParams[numFXSlots];
+	bdsp::ParameterPointerChoice ringModSourceParam;
 
-	bdsp::ParameterPointerControl ringModShapeParams[numFXSlots];
-	bdsp::ParameterPointerControl ringModSkewParams[numFXSlots];
-	bdsp::ParameterPointerControl ringModFreqParams[numFXSlots];
+	bdsp::ParameterPointerControl ringModShapeParam;
+	bdsp::ParameterPointerControl ringModSkewParam;
+	bdsp::ParameterPointerControl ringModFreqParam;
+
 
 
 	//================================================================================================================================================================================================
 	//Chorus
 
 
-	bdsp::ParameterPointerControl chorusRateTimeParams[numFXSlots];
+	bdsp::ParameterPointerControl chorusRateTimeParam;
 
-	bdsp::ParameterPointerControl chorusRateFracParams[numFXSlots];
+	bdsp::ParameterPointerControl chorusRateFracParam;
 
-	bdsp::ParameterPointerChoice chorusRateDivisionParams[numFXSlots];
-
-
-
-	bdsp::ParameterPointerControl chorusDepthParams[numFXSlots];
-
-	bdsp::ParameterPointerControl chorusStereoParams[numFXSlots];
+	bdsp::ParameterPointerChoice chorusRateDivisionParam;
 
 
-	bdsp::ParameterPointerInt chorusVoicesParams[numFXSlots];
+
+	bdsp::ParameterPointerControl chorusDepthParam;
+
+	bdsp::ParameterPointerControl chorusStereoParam;
+
+
+	bdsp::ParameterPointerInt chorusVoicesParam;
+
+
 
 	//================================================================================================================================================================================================
 	//Flanger
 
 
-	bdsp::ParameterPointerControl flangerRateTimeParams[numFXSlots];
+	bdsp::ParameterPointerControl flangerRateTimeParam;
 
-	bdsp::ParameterPointerControl flangerRateFracParams[numFXSlots];
+	bdsp::ParameterPointerControl flangerRateFracParam;
 
-	bdsp::ParameterPointerChoice flangerRateDivisionParams[numFXSlots];
+	bdsp::ParameterPointerChoice flangerRateDivisionParam;
 
 
 
-	bdsp::ParameterPointerControl flangerBaseParams[numFXSlots];
+	bdsp::ParameterPointerControl flangerBaseParam;
 
-	bdsp::ParameterPointerControl flangerDepthParams[numFXSlots];
+	bdsp::ParameterPointerControl flangerDepthParam;
 
-	bdsp::ParameterPointerControl flangerStereoParams[numFXSlots];
+	bdsp::ParameterPointerControl flangerStereoParam;
 
-	bdsp::ParameterPointerControl flangerFeedbackParams[numFXSlots];
+	bdsp::ParameterPointerControl flangerFeedbackParam;
+
 
 
 	//================================================================================================================================================================================================
 	//Phaser
 
 
-	bdsp::ParameterPointerControl phaserRateTimeParams[numFXSlots];
+	bdsp::ParameterPointerControl phaserRateTimeParam;
 
-	bdsp::ParameterPointerControl phaserRateFracParams[numFXSlots];
+	bdsp::ParameterPointerControl phaserRateFracParam;
 
-	bdsp::ParameterPointerChoice phaserRateDivisionParams[numFXSlots];
-
-
-
-	bdsp::ParameterPointerControl phaserCenterParams[numFXSlots];
-
-	bdsp::ParameterPointerControl phaserDepthParams[numFXSlots];
-
-	bdsp::ParameterPointerControl phaserStereoParams[numFXSlots];
-
-	bdsp::ParameterPointerControl phaserFeedbackParams[numFXSlots];
+	bdsp::ParameterPointerChoice phaserRateDivisionParam;
 
 
-	//int phaserStageVals[numFXSlots];
-	//bdsp::ParameterPointerInt phaserStageParams[numFXSlots];
+
+	bdsp::ParameterPointerControl phaserCenterParam;
+
+	bdsp::ParameterPointerControl phaserDepthParam;
+
+	bdsp::ParameterPointerControl phaserStereoParam;
+
+	bdsp::ParameterPointerControl phaserFeedbackParam;
+
+
+
 	//================================================================================================================================================================================================
 	//Panner
 
 
 
-	bdsp::ParameterPointerControl pannerGainParams[numFXSlots];
+	bdsp::ParameterPointerControl pannerGainParam;
 
-	bdsp::ParameterPointerControl pannerPanParams[numFXSlots];
+	bdsp::ParameterPointerControl pannerPanParam;
 
-	bdsp::ParameterPointerControl pannerWidthParams[numFXSlots];
+	bdsp::ParameterPointerControl pannerWidthParam;
 
 
 
@@ -255,14 +269,13 @@ private:
 
 
 
-	bdsp::ParameterPointerControl noiseDryParams[numFXSlots];
-	bdsp::ParameterPointerControl noiseGainParams[numFXSlots];
+	bdsp::ParameterPointerControl noiseDryParam;
+	bdsp::ParameterPointerControl noiseGainParam;
 
-	bdsp::ParameterPointerControl noiseColorParams[numFXSlots];
+	bdsp::ParameterPointerControl noiseColorParam;
 
 
-	bdsp::ParameterPointerControl noiseStereoParams[numFXSlots];
-
+	bdsp::ParameterPointerControl noiseStereoParam;
 
 
 
@@ -270,18 +283,19 @@ private:
 	//EQ
 
 
-	bdsp::ParameterPointerControl EQFreqParams[numFXSlots][EQNumBands];
+	bdsp::ParameterPointerControl EQFreqParams[EQNumBands];
 
-	bdsp::ParameterPointerControl EQBWParams[numFXSlots][EQNumBands];
+	bdsp::ParameterPointerControl EQBWParams[EQNumBands];
 
-	bdsp::ParameterPointerControl EQGainParams[numFXSlots][EQNumBands];
+	bdsp::ParameterPointerControl EQGainParams[EQNumBands];
 
-	bdsp::ParameterPointerControl EQGlobalGainParams[numFXSlots];
+	bdsp::ParameterPointerControl EQGlobalGainParam;
+
 
 
 	//================================================================================================================================================================================================
 
-
+	void createBypassAndMixParam(juce::AudioProcessorValueTreeState::ParameterLayout& layout, const juce::String& FXName, int defaultIndex);
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FlexFXAudioProcessor)
 
@@ -306,3 +320,4 @@ private:
 	bdsp::dsp::ProcessorChain<float>* addFX(int chainIndex, int fxIndex);
 
 };
+
