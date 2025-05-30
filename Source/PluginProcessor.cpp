@@ -18,108 +18,96 @@ FlexFXAudioProcessor::FlexFXAudioProcessor()
 	:Processor(true)
 {
 
-	for (int i = 0; i < FXTypes::NUM; ++i)
-	{
-		juce::String name;
-
-		switch (i)
-		{
-		case FlexFXAudioProcessor::None:
-			name = "None";
-			break;
-		case FlexFXAudioProcessor::Distortion:
-			name = "Distortion";
-			break;
-		case FlexFXAudioProcessor::BitCrush:
-			name = "BitCrush";
-			break;
-		case FlexFXAudioProcessor::Filter:
-			name = "Filter";
-			break;
-		case FlexFXAudioProcessor::EQ:
-			name = "EQ";
-			break;
-		case FlexFXAudioProcessor::PitchShift:
-			name = "Pitch Shift";
-			break;
-		case FlexFXAudioProcessor::RingMod:
-			name = "Ring Mod";
-			break;
-		case FlexFXAudioProcessor::Chorus:
-			name = "Chorus";
-			break;
-		case FlexFXAudioProcessor::Flanger:
-			name = "Flanger";
-			break;
-		case FlexFXAudioProcessor::Phaser:
-			name = "Phaser";
-			break;
-		case FlexFXAudioProcessor::Panner:
-			name = "Panner";
-			break;
-		case FlexFXAudioProcessor::Noise:
-			name = "Noise";
-			break;
-		default:
-			break;
-		}
-
-		if (name.isNotEmpty())
-		{
-			FXTypeNames.add(name);
-		}
-
-	}
-
-	for (int i = 0; i < numFXChains; ++i)
-	{
-		chains.add(new bdsp::dsp::ProcessorChain<float>());
-		latencyAdjusters.add(new bdsp::dsp::DelayLineBase<float>());
-	}
-
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		currentFXs.add(nullptr);
-
-		emptyProcessors.add(new bdsp::dsp::EmptyProcessor<float>());
-		distortions.add(new bdsp::dsp::VariableDistortion<float>(&lookups));
-		bitCrushes.add(new bdsp::dsp::BitCrushDistortion<float>(&lookups));
-		filters.add(new bdsp::dsp::CascadedFilter<float, bdsp::dsp::BiQuadFilters::StateVariableFilter<float>, 2>(&lookups));
-		pitchShifters.add(new bdsp::dsp::PitchShifter<float>());
-		ringMods.add(new bdsp::dsp::RingModulation<float>(&lookups));
-
-		ringModSources.add(new bdsp::dsp::SampleSource<float>("RingMod" + juce::String(i + 1)));
-		ringModControllers.add(new bdsp::SpectrogramController(ringModSources.getLast(), &lookups, 10));
-		ringMods.getLast()->setOutputSource(ringModSources.getLast());
 
 
+	chain = std::make_unique<bdsp::dsp::ProcessorChain<float>>();
+	latencyAdjuster = std::make_unique <bdsp::dsp::DelayLineBase<float>>();
+
+	chain->clear();
+	FXTypeNames.clear();
+
+	//================================================================================================================================================================================================
+	//Distortion
+	FXTypeNames.add("Distortion");
+	distortion = std::make_unique< bdsp::dsp::VariableDistortion<float>>(&lookups);
+	chain->addProcessor(distortion.get());
+
+	//================================================================================================================================================================================================
+	//Bit Crusher
+	FXTypeNames.add("Bit Crusher");
+	bitCrusher = std::make_unique< bdsp::dsp::BitCrushDistortion<float>>(&lookups);
+	chain->addProcessor(bitCrusher.get());
+
+	//================================================================================================================================================================================================
+	//Filter
+	FXTypeNames.add("Filter");
+	filter = std::make_unique< bdsp::dsp::CascadedFilter<float, bdsp::dsp::BiQuadFilters::StateVariableFilter<float>, 2>>(&lookups);
+	chain->addProcessor(filter.get());
+
+	//================================================================================================================================================================================================
+	//EQ
+	FXTypeNames.add("EQ");
+	EQ = std::make_unique< bdsp::dsp::ParametricEQ<float>>(&lookups, EQNumBands - 2);
+	chain->addProcessor(EQ.get());
+
+	//================================================================================================================================================================================================
+	//Pitch Shifter
+	FXTypeNames.add("Pitch Shifter");
+	pitchShifter = std::make_unique< bdsp::dsp::PitchShifter<float>>();
+	chain->addProcessor(pitchShifter.get());
+
+	//================================================================================================================================================================================================
+	//Ring Modulator
+	FXTypeNames.add("Ring Modulator");
+
+	ringMod = std::make_unique< bdsp::dsp::RingModulation<float>>(&lookups);
+	ringModSource = std::make_unique<bdsp::dsp::SampleSource<float>>("RingMod");
+	ringMod->setOutputSource(ringModSource.get());
+	chain->addProcessor(ringMod.get());
+
+	//================================================================================================================================================================================================
+	//Chorus
+	FXTypeNames.add("Chrous");
+	chorus = std::make_unique<bdsp::dsp::Chorus<float>>(&lookups);
+	chain->addProcessor(chorus.get());
+
+	//================================================================================================================================================================================================
+	//Flanger
+	FXTypeNames.add("Flanger");
+	flanger = std::make_unique<bdsp::dsp::Flanger<float>>(&lookups);
+	chain->addProcessor(flanger.get());
+
+	//================================================================================================================================================================================================
+	//Phaser
+	FXTypeNames.add("Phaser");
+	phaser = std::make_unique <bdsp::dsp::Phaser<float>>(&lookups, &parameterAttributes.getFloatAttribute("Frequency").range);
+	phaser->setNumStages(BDSP_PHASER_MAX_POLES / 2);
+	chain->addProcessor(phaser.get());
 
 
+	//================================================================================================================================================================================================
+	//Panner
+	FXTypeNames.add("Panner");
+	panner = std::make_unique< bdsp::dsp::StereoWidener<float>>(&lookups);
+	pannerMeterSource = std::make_unique<bdsp::dsp::SampleSource<float>>("Panner");
+	pannerMeterController = std::make_unique<bdsp::LevelMeterController<float>>(pannerMeterSource.get());
+	panner->setOutputSource(pannerMeterSource.get());
+	chain->addProcessor(panner.get());
 
-		choruses.add(new bdsp::dsp::Chorus<float>(&lookups));
-		flangers.add(new bdsp::dsp::Flanger<float>(&lookups));
-		phasers.add(new bdsp::dsp::Phaser<float>(&lookups, &parameterAttributes.getFloatAttribute("Frequency").range));
-		phasers.getLast()->setNumStages(BDSP_PHASER_MAX_POLES / 2);
-
-		panners.add(new bdsp::dsp::StereoWidener<float>(&lookups));
-		pannerMeterSources.add(new bdsp::dsp::SampleSource<float>("Panner" + juce::String(i + 1)));
-		pannerMeterControllers.add(new bdsp::LevelMeterController<float>(pannerMeterSources.getLast()));
-
-		panners.getLast()->setOutputSource(pannerMeterSources.getLast());
+	//================================================================================================================================================================================================
+	//Noise
+	FXTypeNames.add("Noise");
+	noise = std::make_unique< bdsp::dsp::Noise::StereoNoiseGenerator<float, bdsp::dsp::Noise::ColoredNoise<float>>>();
+	chain->addProcessor(noise.get());
 
 
-		noises.add(new bdsp::dsp::Noise::StereoNoiseGenerator<float, bdsp::dsp::Noise::ColoredNoise<float>>());
-
-
-		EQs.add(new bdsp::dsp::ParametricEQ<float>(&lookups, EQNumBands - 2));
-	}
 
 
 	init();
 
 
 
-	texture = juce::PNGImageFormat::loadFrom(Texture_Data::texture_png, Texture_Data::texture_pngSize);
+	//texture = juce::PNGImageFormat::loadFrom(Texture_Data::texture_png, Texture_Data::texture_pngSize);
 
 
 
@@ -177,68 +165,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout FlexFXAudioProcessor::create
 
 	createBPMParameter(out);
 
-	out.add(std::make_unique<juce::AudioParameterBool>("RoutingID", "Routing", false)); // true - parallel  &&  false - series
 
-	auto percentAtt = parameterAttributes.getFloatAttribute("Percent");
-
-
-	bdsp::FloatParameterAttribute parallelMixAtt;
-	parallelMixAtt.range = juce::NormalisableRange<float>(-1, 1);
-	parallelMixAtt.valueToTextLambda = [=](float v, int)
-	{
-
-		float norm = (v + 1) / 2;
-		float valA = 1 - norm;
-		float valB = norm;
-
-		return percentAtt.valueToTextLambda(valA, 0) + " A, " + percentAtt.valueToTextLambda(valB, 0) + " B";
-
-
-	};
-
-	parallelMixAtt.textToValueLambda = [=](const juce::String& s)
-	{
-		if (s.containsIgnoreCase("A"))
-		{
-			return s.retainCharacters("0123456789.").getFloatValue() / 100;
-		}
-		else if (s.containsIgnoreCase("B"))
-		{
-			return -s.retainCharacters("0123456789.").getFloatValue() / 100;
-		}
-		else
-		{
-			return s.getFloatValue() / 100;
-		}
-	};
-
-	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "ParallelMixID", "Parallel Mix", 0, parallelMixAtt));
-
-
-	//Chain bypass
-	for (int i = 0; i < numFXChains; ++i)
-	{
-		out.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("Chain" + bdsp::asciiCharToJuceString(65 + i) + "BypassID", 1), "Chain " + bdsp::asciiCharToJuceString(65 + i) + " Bypass", false));
-	}
-
-
-	//FX type
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("FX" + juce::String(i + 1) + "TypeID", 1), "FX " + juce::String(i + 1) + " Type", FXTypeNames, 0, "FX Type"));
-	}
-
-	//FX bypass
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("FX" + juce::String(i + 1) + "BypassID", 1), "FX " + juce::String(i + 1) + " Bypass", false));
-	}
-
-	//FX mix
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "FX" + juce::String(i + 1) + "MixID", "FX " + juce::String(i + 1) + " Mix", 1, "Percent"));
-	}
 
 
 
@@ -259,79 +186,56 @@ juce::AudioProcessorValueTreeState::ParameterLayout FlexFXAudioProcessor::create
 		bdsp::dsp::DistortionTypes::TriFold<float>::Name
 	);
 
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		auto DriveTypeName = "Distortion " + juce::String(i + 1) + " Type";
-		auto DriveTypeID = "Distortion" + juce::String(i + 1) + "TypeID";
+
+	auto DriveTypeName = "Distortion Type";
+	auto DriveTypeID = "DistortionTypeID";
 
 
-		out.add(std::make_unique<juce::AudioParameterChoice>(DriveTypeID, DriveTypeName, distortionTypes, 0));
-	}
+	out.add(std::make_unique<juce::AudioParameterChoice>(DriveTypeID, DriveTypeName, distortionTypes, 0));
+
 
 	auto gainAtt = parameterAttributes.getFloatAttribute("Gain");
 	gainAtt.range.end = 10;
 	gainAtt.range.skew = 0.5;
+
 	//Pre Gain
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "Distortion" + juce::String(i + 1) + "PreGainID", "Distortion " + juce::String(i + 1) + "  Pre Gain", 1, gainAtt));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "DistortionPreGainID", "Distortion Pre Gain", 1, gainAtt));
+
 
 
 	//Amount
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "Distortion" + juce::String(i + 1) + "AmountID", "Distortion " + juce::String(i + 1) + "  Amount", 0, "Percent"));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "DistortionAmountID", "Distortion Amount", 0, "Percent"));
 
 
 	//AGC
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<juce::AudioParameterBool>("Distortion" + juce::String(i + 1) + "GainCompensationID", "Distortion " + juce::String(i + 1) + "  Gain Compensation", false));
-	}
+	out.add(std::make_unique<juce::AudioParameterBool>("DistortionGainCompensationID", "Distortion Gain Compensation", false));
+
+	createBypassAndMixParam(out, "Distortion", 0);
 
 	//================================================================================================================================================================================================
 	//Bit Crush
-
-
 	//Depth
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "BitCrush" + juce::String(i + 1) + "DepthID", "Bit Crush " + juce::String(i + 1) + "  Depth", 0, "Bit Crush Depth"));
-	}
-
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "BitCrushDepthID", "Bit Crush Depth", 0, "Bit Crush Depth"));
 
 	//Rate
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "BitCrush" + juce::String(i + 1) + "RateID", "Bit Crush " + juce::String(i + 1) + "  Rate", 1, "Bit Crush Sampling Rate"));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "BitCrushRateID", "Bit Crush Rate", 1, "Bit Crush Sampling Rate"));
 
+	createBypassAndMixParam(out, "Bit Crush", 1);
 
 	//================================================================================================================================================================================================
 	//Filter
 
-
 	//Type
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "Filter" + juce::String(i + 1) + "TypeID", "Filter " + juce::String(i + 1) + "  Type", 0.5, "Filter Type"));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "FilterTypeID", "Filter Type", 0.5, "Filter Type"));
 
 
 	//Freq
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "Filter" + juce::String(i + 1) + "FrequencyID", "Filter " + juce::String(i + 1) + "  Frequency", 1000, "Frequency"));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "FilterFrequencyID", "Filter Frequency", 1000, "Frequency"));
 
 
 	//Q
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "Filter" + juce::String(i + 1) + "ResonanceID", "Filter " + juce::String(i + 1) + "  Resonance", BDSP_FILTER_DEFAULT_Q, "Filter Q"));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "FilterResonanceID", "Filter Resonance", BDSP_FILTER_DEFAULT_Q, "Filter Q"));
+	createBypassAndMixParam(out, "Filter", 2);
 
 	//================================================================================================================================================================================================
 	//EQ
@@ -340,178 +244,119 @@ juce::AudioProcessorValueTreeState::ParameterLayout FlexFXAudioProcessor::create
 	EQGloabalAtt.range.start = -1;
 
 	//Gain
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "EQ" + juce::String(i + 1) + "GlobalGainID", "EQ " + juce::String(i + 1) + " Global Gain", 1, EQGloabalAtt));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "EQGlobalGainID", "EQ Global Gain", 1, EQGloabalAtt));
 
 	//Freq
-	for (int i = 0; i < numFXSlots; ++i)
+	float defaultFreq = 40;
+	for (int j = 0; j < EQNumBands; ++j)
 	{
-		float defaultFreq = 40;
-		for (int j = 0; j < EQNumBands; ++j)
-		{
-			out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "EQ" + juce::String(i + 1) + "Band" + juce::String(j) + "FrequencyID", "EQ " + juce::String(i + 1) + "Band" + juce::String(j) + "  Frequency", defaultFreq, "Frequency"));
-			defaultFreq *= 4;
-		}
-
+		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "EQBand" + juce::String(j) + "FrequencyID", "EQ Band " + juce::String(j) + " Frequency", defaultFreq, "Frequency"));
+		defaultFreq *= 4;
 	}
 
 	//Q
-	for (int i = 0; i < numFXSlots; ++i)
+	for (int j = 0; j < EQNumBands; ++j)
 	{
-		for (int j = 0; j < EQNumBands; ++j)
-		{
-			out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "EQ" + juce::String(i + 1) + "Band" + juce::String(j) + "QID", "EQ " + juce::String(i + 1) + "Band" + juce::String(j) + "  Q", BDSP_FILTER_DEFAULT_Q, "Filter Q"));
-		}
+		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "EQBand" + juce::String(j) + "QID", "EQ Band " + juce::String(j) + " Q", BDSP_FILTER_DEFAULT_Q, "Filter Q"));
 	}
+
 
 	//Gain
-	for (int i = 0; i < numFXSlots; ++i)
+
+	for (int j = 0; j < EQNumBands; ++j)
 	{
-		for (int j = 0; j < EQNumBands; ++j)
-		{
-			out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "EQ" + juce::String(i + 1) + "Band" + juce::String(j) + "GainID", "EQ " + juce::String(i + 1) + "Band" + juce::String(j) + "  Gain", 0, "EQ Gain"));
-		}
+		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "EQBand" + juce::String(j) + "GainID", "EQ Band " + juce::String(j + 1) + " Gain", 0, "EQ Gain"));
 	}
 
-
-
+	createBypassAndMixParam(out, "EQ", 3);
 
 	//================================================================================================================================================================================================
 	//Pitch Shift
 
 
 	//L
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "PitchShift" + juce::String(i + 1) + "LeftID", "Pitch Shift" + juce::String(i + 1) + "  Left", 0, "Pitch Shift"));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "PitchShiftLeftID", "Pitch ShiftLeft", 0, "Pitch Shift"));
 
 	//R
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "PitchShift" + juce::String(i + 1) + "RightID", "Pitch Shift" + juce::String(i + 1) + "  Right", 0, "Pitch Shift"));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "PitchShiftRightID", "Pitch ShiftRight", 0, "Pitch Shift"));
 
 	//Link
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<juce::AudioParameterBool>("PitchShift" + juce::String(i + 1) + "LinkID", "Pitch Shift" + juce::String(i + 1) + "  Link", false));
-	}
+	out.add(std::make_unique<juce::AudioParameterBool>("PitchShiftLinkID", "Pitch ShiftLink", false));
 
+	createBypassAndMixParam(out, "Pitch Shift", 4);
 
 
 	//================================================================================================================================================================================================
 	//RingMod
 
 	juce::StringArray ringModSources({ "Tone","Side-Chain","Self" });
-	for (int i = 0; i < numFXSlots; ++i)
-	{
 
-		out.add(std::make_unique<juce::AudioParameterChoice>("RingMod" + juce::String(i + 1) + "SourceID", "Ring Mod " + juce::String(i + 1) + " Source", ringModSources, 0));
-	}
+	out.add(std::make_unique<juce::AudioParameterChoice>("RingModSourceID", "Ring Mod Source", ringModSources, 0));
+
 
 	auto ringModFreqAtt = parameterAttributes.getFloatAttribute("Frequency");
 
 	ringModFreqAtt.range.start = 0.1;
 	ringModFreqAtt.range.end = 10000;
 	//Shape
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "RingMod" + juce::String(i + 1) + "ShapeID", "Ring Mod" + juce::String(i + 1) + "  Shape", 0, "LFO Shape"));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "RingModShapeID", "Ring ModShape", 0, "LFO Shape"));
 	//Skew
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "RingMod" + juce::String(i + 1) + "SkewID", "Ring Mod" + juce::String(i + 1) + "  Skew", 0.5, "Percent"));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "RingModSkewID", "Ring ModSkew", 0.5, "Percent"));
 	//Freq
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "RingMod" + juce::String(i + 1) + "FrequencyID", "Ring Mod" + juce::String(i + 1) + "  Frequency", 440, ringModFreqAtt));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "RingModFrequencyID", "Ring ModFrequency", 440, ringModFreqAtt));
 
-
-
-
+	createBypassAndMixParam(out, "Ring Mod", 5);
 
 	//================================================================================================================================================================================================
 	//Chorus
 
-
 	//Rate
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		createSyncRateParameters(out, "Chorus" + juce::String(i + 1) + "RateID", "Chorus " + juce::String(i + 1) + "  Rate", 0.25f, 4.0f, 1);
-	}
+	createSyncRateParameters(out, "ChorusRateID", "Chorus Rate", 0.25f, 4.0f, 1);
 
 	auto timeAtt = parameterAttributes.getFloatAttribute("ms Time");
 	timeAtt.range.start = 0;
 	timeAtt.range.end = BDSP_CHORUS_DEPTH_MAX_MS;
 
 	//Depth
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "Chorus" + juce::String(i + 1) + "DepthID", bdsp::asciiCharToJuceString(65 + i) + " Chrous Depth", BDSP_CHORUS_DEPTH_MAX_MS, timeAtt));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "ChorusDepthID", "Chrous Depth", BDSP_CHORUS_DEPTH_MAX_MS, timeAtt));
 
 	//Stereo
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "Chorus" + juce::String(i + 1) + "StereoID", "Chorus " + juce::String(i + 1) + "  Stereo", 0, "Percent"));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "ChorusStereoID", "Chorus Stereo", 0, "Percent"));
 
 	//Voices
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<juce::AudioParameterInt>("Chorus" + juce::String(i + 1) + "VoicesID", "Chorus " + juce::String(i + 1) + "  Voices", BDSP_CHORUS_MIN_VOICES, BDSP_CHORUS_MAX_VOICES, BDSP_CHORUS_MIN_VOICES));
-	}
+	out.add(std::make_unique<juce::AudioParameterInt>("ChorusVoicesID", "Chorus Voices", BDSP_CHORUS_MIN_VOICES, BDSP_CHORUS_MAX_VOICES, BDSP_CHORUS_MIN_VOICES));
 
+	createBypassAndMixParam(out, "Chorus", 6);
 
 
 	//================================================================================================================================================================================================
 	//Flanger
 
-
 	//Rate
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		createSyncRateParameters(out, "Flanger" + juce::String(i + 1) + "RateID", "Flanger " + juce::String(i + 1) + "  Rate", 0.25f, 4.0f, 1);
-	}
+	createSyncRateParameters(out, "FlangerRateID", "Flanger Rate", 0.25f, 4.0f, 1);
 
 	timeAtt.range.start = BDSP_FLANGER_BASE_DELAY_MIN_MS;
 	timeAtt.range.end = BDSP_FLANGER_BASE_DELAY_MAX_MS;
 
 	//Base
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "Flanger" + juce::String(i + 1) + "BaseID", "Flanger " + juce::String(i + 1) + "  Base", BDSP_FLANGER_BASE_DELAY_MIN_MS, timeAtt));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "FlangerBaseID", "Flanger Base", BDSP_FLANGER_BASE_DELAY_MIN_MS, timeAtt));
 
 
 	timeAtt.range.start = 0;
 	timeAtt.range.end = BDSP_FLANGER_DELAY_CHANGE_MAX_MS;
 	//Depth
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "Flanger" + juce::String(i + 1) + "DepthID", "Flanger " + juce::String(i + 1) + "  Depth", BDSP_FLANGER_DELAY_CHANGE_MAX_MS, timeAtt));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "FlangerDepthID", "Flanger Depth", BDSP_FLANGER_DELAY_CHANGE_MAX_MS, timeAtt));
 
 	//Stereo
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "Flanger" + juce::String(i + 1) + "StereoID", "Flanger " + juce::String(i + 1) + "  Stereo", 0, "Percent"));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "FlangerStereoID", "Flanger Stereo", 0, "Percent"));
 
+	auto percentAtt = parameterAttributes.getFloatAttribute("Percent");
 	percentAtt.range.start = -0.95;
 	percentAtt.range.end = -percentAtt.range.start;
 	//FB
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "Flanger" + juce::String(i + 1) + "FeedbackID", "Flanger " + juce::String(i + 1) + "  Feedback", 0, percentAtt));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "FlangerFeedbackID", "Flanger Feedback", 0.5, percentAtt));
 
+	createBypassAndMixParam(out, "Flanger", 7);
 
 
 	//================================================================================================================================================================================================
@@ -519,85 +364,51 @@ juce::AudioProcessorValueTreeState::ParameterLayout FlexFXAudioProcessor::create
 
 
 	//Rate
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		createSyncRateParameters(out, "Phaser" + juce::String(i + 1) + "RateID", "Phaser " + juce::String(i + 1) + "  Rate", 0.25f, 4.0f, 1);
-	}
+	createSyncRateParameters(out, "PhaserRateID", "Phaser Rate", 0.25f, 4.0f, 1);
 
 
 	//Base
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "Phaser" + juce::String(i + 1) + "CenterID", "Phaser " + juce::String(i + 1) + "  Center", 0.5, "Frequency"));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "PhaserCenterID", "Phaser Center", 0.5, "Frequency"));
 
 
 	//Depth
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "Phaser" + juce::String(i + 1) + "DepthID", "Phaser " + juce::String(i + 1) + "  Depth", 1, "Percent"));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "PhaserDepthID", "Phaser Depth", 1, "Percent"));
 
 	//Stereo
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "Phaser" + juce::String(i + 1) + "StereoID", "Phaser " + juce::String(i + 1) + "  Stereo", 0, "Percent"));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "PhaserStereoID", "Phaser Stereo", 0, "Percent"));
 
+	percentAtt.range.start = 0.0;
 	percentAtt.range.end = 0.95;
 	//FB
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "Phaser" + juce::String(i + 1) + "FeedbackID", "Phaser " + juce::String(i + 1) + "  Feedback", 0, percentAtt));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "PhaserFeedbackID", "Phaser Feedback", 0, percentAtt));
 
-
-
-	////Stages
-	//for (int i = 0; i < numFXSlots; ++i)
-	//{
-	//	out.add(std::make_unique<juce::AudioParameterInt>("Phaser" + juce::String(i + 1) + "StageID", "Phaser " + juce::String(i + 1) + "  Stages", 1, BDSP_PHASER_MAX_POLES / 2, 1));
-	//}
+	createBypassAndMixParam(out, "Phaser", 8);
 
 	//================================================================================================================================================================================================
 	//Panner
 
 
 	//Gain
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "Panner" + juce::String(i + 1) + "GainID", "Panner " + juce::String(i + 1) + "  Gain", 1, "Gain"));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "PannerGainID", "Panner Gain", 1, "Gain"));
 
 	percentAtt.range.start = -1;
 	percentAtt.range.end = 1;
 	//Pan
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "Panner" + juce::String(i + 1) + "PanID", "Panner " + juce::String(i + 1) + "  Pan", 0, percentAtt));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "PannerPanID", "Panner Pan", 0, percentAtt));
 
 	//Width
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "Panner" + juce::String(i + 1) + "StereoWidthID", "Panner " + juce::String(i + 1) + "  Stereo Width", 0, percentAtt));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "PannerStereoWidthID", "Panner Stereo Width", 0, percentAtt));
 
+	createBypassAndMixParam(out, "Panner", 9);
 
 
 	//================================================================================================================================================================================================
 	//Noise
 
 	//Dry Gain
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "Noise" + juce::String(i + 1) + "DryGainID", "Noise " + juce::String(i + 1) + " Gain", 1, "Gain"));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "NoiseDryGainID", "Noise Gain", 1, "Gain"));
 	//Gain
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "Noise" + juce::String(i + 1) + "GainID", "Noise " + juce::String(i + 1) + " Gain", 1, "Gain"));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "NoiseGainID", "Noise Gain", 1, "Gain"));
 
 	auto colorAtt = parameterAttributes.getFloatAttribute("Percent");
 	colorAtt.range.start = -1;
@@ -621,32 +432,44 @@ juce::AudioProcessorValueTreeState::ParameterLayout FlexFXAudioProcessor::create
 
 
 	//Color
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "Noise" + juce::String(i + 1) + "ColorID", "Noise " + juce::String(i + 1) + " Color", 0, colorAtt));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "NoiseColorID", "Noise Color", 0, colorAtt));
 
 
 
 
 	//Stereo
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "Noise" + juce::String(i + 1) + "StereoID", "Noise " + juce::String(i + 1) + " Stereo Width", 0, "Percent"));
-	}
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "NoiseStereoID", "Noise Stereo Width", 0, "Percent"));
+
+	createBypassAndMixParam(out, "Noise", 10);
 
 
 
+	//================================================================================================================================================================================================
 
-
-
-
+	fxOrderParam = std::make_unique<bdsp::OrderedListParameter>(hiddenDummyProcessor.getParameterLayout(), FXTypeNames.size(), juce::ParameterID("FXOrder"));
+	hiddenDummyProcessor.orderedParams.add(fxOrderParam.get());
 
 
 
 	return out;
 
 }
+
+
+void FlexFXAudioProcessor::createBypassAndMixParam(juce::AudioProcessorValueTreeState::ParameterLayout& layout, const juce::String& FXName, int defaultIndex)
+{
+	auto trimmed = FXName.removeCharacters(" ");
+	//FX bypass
+	layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID(trimmed + "BypassID", 1), FXName + " Bypass", true));
+
+	//FX mix
+	layout.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, layout, linkableControlIDs, linkableControlNames, trimmed + "MixID", FXName + " Mix", 1, "Percent"));
+
+	layout.add(std::make_unique<juce::AudioParameterInt>(juce::ParameterID(trimmed + "IndexID", 1), FXName + " Index", 0, FXTypeNames.size(), defaultIndex));
+
+}
+
+
 
 void FlexFXAudioProcessor::setFactoryPresets()
 {
@@ -673,258 +496,178 @@ void FlexFXAudioProcessor::processBlockInit(juce::AudioBuffer<float>& buffer, ju
 
 
 
+	chain->reorderProcessors(fxOrderParam->getOrder());
 
+	fxLatency = 0;
 
+	//================================================================================================================================================================================================
+	//Distortion
 
-	juce::Array<int> chainFXNum;
-	chainFXNum.resize(numFXSlots);
+	distortion->setPre(distortionPreGainParam.get());
+	distortion->setAmount(distortionAmountParam.get());
+	distortion->isScaled = distortionAGCParam.get();
+	distortion->setMix(generics[0]->mixParam.get());
+	distortion->setBypassed(generics[0]->bypassParam.get());
 
+	fxLatency += distortion->getLatency() * !distortion->isBypassed();
 
-	for (int i = 0; i < numFXSlots; ++i)
+	//================================================================================================================================================================================================
+	//Bit Crush
+
+	bitCrusher->setBitDepth(bitcrushDepthParam.get());
+	bitCrusher->setReductionFactor(bitcrushRateParam.get());
+	bitCrusher->setMix(generics[1]->mixParam.get());
+	bitCrusher->setBypassed(generics[1]->bypassParam.get());
+
+	fxLatency += bitCrusher->getLatency() * !bitCrusher->isBypassed();
+	//================================================================================================================================================================================================
+	//Filter
+
+	filter->setType(filterTypeParam.get());
+	filter->setFrequency(filterFreqParam.get());
+	filter->setQFactor(filterQParam.get());
+
+	filter->setMix(generics[2]->mixParam.get());
+	filter->setBypassed(generics[2]->bypassParam.get());
+
+	fxLatency += filter->getLatency() * !filter->isBypassed();
+	//================================================================================================================================================================================================
+	//EQ
+
+	for (int j = 0; j < EQNumBands; ++j)
 	{
-		//set current fx pointers here
-		switch (FXTypes(fxTypeParams[i].get()))
-		{
-		case FlexFXAudioProcessor::None:
-			currentFXs.set(i, emptyProcessors.getUnchecked(i));
-			break;
-		case FlexFXAudioProcessor::Distortion:
-			currentFXs.set(i, distortions.getUnchecked(i));
-			break;
-		case FlexFXAudioProcessor::BitCrush:
-			currentFXs.set(i, bitCrushes.getUnchecked(i));
-			break;
-		case FlexFXAudioProcessor::Filter:
-			currentFXs.set(i, filters.getUnchecked(i));
-			break;
-		case FlexFXAudioProcessor::EQ:
-			currentFXs.set(i, EQs.getUnchecked(i));
-			break;
-		case FlexFXAudioProcessor::PitchShift:
-			currentFXs.set(i, pitchShifters.getUnchecked(i));
-			break;
-		case FlexFXAudioProcessor::RingMod:
-			currentFXs.set(i, ringMods.getUnchecked(i));
-			break;
-		case FlexFXAudioProcessor::Chorus:
-			currentFXs.set(i, choruses.getUnchecked(i));
-			break;
-		case FlexFXAudioProcessor::Flanger:
-			currentFXs.set(i, flangers.getUnchecked(i));
-			break;
-		case FlexFXAudioProcessor::Phaser:
-			currentFXs.set(i, phasers.getUnchecked(i));
-			break;
-		case FlexFXAudioProcessor::Panner:
-			currentFXs.set(i, panners.getUnchecked(i));
-			break;
-		case FlexFXAudioProcessor::Noise:
-			currentFXs.set(i, noises.getUnchecked(i));
-			break;
-		default:
-			break;
-		}
+		EQ->getBand(j)->setFrequency(EQFreqParams[j].get());
+		EQ->getBand(j)->setQFactor(EQBWParams[j].get());
+		EQ->getBand(j)->setGain(EQGainParams[j].get() * EQGlobalGainParam.get());
+	}
+	EQ->setMix(generics[3]->mixParam.get());
+	EQ->setBypassed(generics[3]->bypassParam.get());
+
+	fxLatency += EQ->getLatency() * !EQ->isBypassed();
+
+	//================================================================================================================================================================================================
+	//Pitch Shift
+	auto r = pitchShiftLinkParam.get() ? pitchShiftLeftParam.get() : pitchShiftRightParam.get();
+
+	pitchShifter->setShiftAmount(0, pitchShiftLeftParam.get());
+	pitchShifter->setShiftAmount(1, r);
+
+	pitchShifter->setMix(generics[4]->mixParam.get());
+	pitchShifter->setBypassed(generics[4]->bypassParam.get());
+
+	fxLatency += pitchShifter->getLatency() * !pitchShifter->isBypassed();
+
+	//================================================================================================================================================================================================
+	//RingMod
+	int ringSource = ringModSourceParam.get();
 
 
-
-
-
-		fxLatency[i] = currentFXs.getUnchecked(i)->getLatency() * !fxBypassParams[i].get();
-
-		//================================================================================================================================================================================================
-		//Mix
-
-		int chainNum = i / numFXPerChain;
-		currentFXs.getUnchecked(i)->setMix(fxMixParams[i].get());
-		currentFXs.getUnchecked(i)->setBypassed(chainBypassParams[chainNum].get() || fxBypassParams[i].get());
-
-
-
-
-
-		//================================================================================================================================================================================================
-		//Distortion
-
-		distortions.getUnchecked(i)->setPre(distortionPreGainParams[i].get());
-		distortions.getUnchecked(i)->setAmount(distortionAmountParams[i].get());
-		distortions.getUnchecked(i)->isScaled = distortionAGCParams[i].get();
-
-
-		//================================================================================================================================================================================================
-		//Bit Crush
-
-		bitCrushes.getUnchecked(i)->setBitDepth(bitcrushDepthParams[i].get());
-		bitCrushes.getUnchecked(i)->setReductionFactor(bitcrushRateParams[i].get());
-
-		//================================================================================================================================================================================================
-		//Filter
-
-		filters.getUnchecked(i)->setType(filterTypeParams[i].get());
-		filters.getUnchecked(i)->setFrequency(filterFreqParams[i].get());
-		filters.getUnchecked(i)->setQFactor(filterQParams[i].get());
-
-		//================================================================================================================================================================================================
-		//EQ
-
-		for (int j = 0; j < EQNumBands; ++j)
-		{
-			EQs.getUnchecked(i)->getBand(j)->setFrequency(EQFreqParams[i][j].get());
-			EQs.getUnchecked(i)->getBand(j)->setQFactor(EQBWParams[i][j].get());
-			EQs.getUnchecked(i)->getBand(j)->setGain(EQGainParams[i][j].get() * EQGlobalGainParams[i].get());
-		}
-
-
-		//================================================================================================================================================================================================
-		//Pitch Shift
-		auto r = pitchShiftLinkParams[i].get() ? pitchShiftLeftParams[i].get() : pitchShiftRightParams[i].get();
-
-		pitchShifters.getUnchecked(i)->setShiftAmount(0, pitchShiftLeftParams[i].get());
-		pitchShifters.getUnchecked(i)->setShiftAmount(1, r);
-
-		//================================================================================================================================================================================================
-		//RingMod
-		int ringSource = ringModSourceParams[i].get();
-
-
-		switch (ringSource)
-		{
-		case 0: // Tone
-		{
-			ringMods.getUnchecked(i)->setModSource(bdsp::dsp::RingModulation<float>::RingModSource::Tone);
-			auto* gen = ringMods.getUnchecked(i)->getToneGenerator();
-			gen->setShape(ringModShapeParams[i].get());
-			gen->setSkew(ringModSkewParams[i].get());
-			gen->setFrequency(ringModFreqParams[i].get());
-			break;
-		}
-		case 1: // Side-Chain
-			ringMods.getUnchecked(i)->setModSource(bdsp::dsp::RingModulation<float>::RingModSource::Sidechain);
-			ringMods.getUnchecked(i)->setSidechain(&sidechainBuffer);
-			break;
-		case 2: // Self
-			ringMods.getUnchecked(i)->setModSource(bdsp::dsp::RingModulation<float>::RingModSource::Self);
-			break;
-		}
-
-
-		//================================================================================================================================================================================================
-		//Chorus
-
-		auto chorusRate = 1000.0f / bdsp::calculateTimeInMs(BPMFollow->getValue(), chorusRateTimeParams[i].get(), chorusRateFracParams[i].get(), chorusRateDivisionParams[i].get(), true);
-		choruses.getUnchecked(i)->setDelayChangeRate(chorusRate);
-		choruses.getUnchecked(i)->setDepth(chorusDepthParams[i].get());
-		choruses.getUnchecked(i)->setStereoWidth(chorusStereoParams[i].get());
-		choruses.getUnchecked(i)->setNumVoices(chorusVoicesParams[i].get());
-
-		//================================================================================================================================================================================================
-		//Flanger
-
-		auto flangerRate = 1000.0f / bdsp::calculateTimeInMs(BPMFollow->getValue(), flangerRateTimeParams[i].get(), flangerRateFracParams[i].get(), flangerRateDivisionParams[i].get(), true);
-		flangers.getUnchecked(i)->setDelayChangeRate(flangerRate);
-		flangers.getUnchecked(i)->setBaseDelay(flangerBaseParams[i].get());
-		flangers.getUnchecked(i)->setDelayChangeMax(flangerDepthParams[i].get());
-		flangers.getUnchecked(i)->setStereoSpread(flangerStereoParams[i].get());
-		flangers.getUnchecked(i)->setFeedback(flangerFeedbackParams[i].get());
-
-		//================================================================================================================================================================================================
-		//Phaser
-
-		auto phaserRate = 1000.0f / bdsp::calculateTimeInMs(BPMFollow->getValue(), phaserRateTimeParams[i].get(), phaserRateFracParams[i].get(), phaserRateDivisionParams[i].get(), true);
-		phasers.getUnchecked(i)->setPhaseChangeRate(phaserRate);
-		phasers.getUnchecked(i)->setCenterAndDepth(phaserCenterParams[i].get(), phaserDepthParams[i].get());
-		phasers.getUnchecked(i)->setStereoWidth(phaserStereoParams[i].get());
-		phasers.getUnchecked(i)->setFeedback(phaserFeedbackParams[i].get());
-		//	phasers.getUnchecked(i)->setNumStages(phaserStageParams[i].get());
-
-			//================================================================================================================================================================================================
-			//Panner
-
-		panners.getUnchecked(i)->setGain(pannerGainParams[i].get());
-		panners.getUnchecked(i)->setPan(pannerPanParams[i].get());
-		panners.getUnchecked(i)->setWidth(pannerWidthParams[i].get());
-
-
-		//================================================================================================================================================================================================
-		//Noise
-
-		noises.getUnchecked(i)->setGain(noiseGainParams[i].get());
-		noises.getUnchecked(i)->setDryMix(noiseDryParams[i].get());
-		noises.getUnchecked(i)->setWetMix(1);
-		noises.getUnchecked(i)->setColor(noiseColorParams[i].get());
-		noises.getUnchecked(i)->setStereoWidth(noiseStereoParams[i].get());
-
-
-
-
-
+	switch (ringSource)
+	{
+	case 0: // Tone
+	{
+		ringMod->setModSource(bdsp::dsp::RingModulation<float>::RingModSource::Tone);
+		auto* gen = ringMod->getToneGenerator();
+		gen->setShape(ringModShapeParam.get());
+		gen->setSkew(ringModSkewParam.get());
+		gen->setFrequency(ringModFreqParam.get());
+		break;
+	}
+	case 1: // Side-Chain
+		ringMod->setModSource(bdsp::dsp::RingModulation<float>::RingModSource::Sidechain);
+		ringMod->setSidechain(&sidechainBuffer);
+		break;
+	case 2: // Self
+		ringMod->setModSource(bdsp::dsp::RingModulation<float>::RingModSource::Self);
+		break;
 	}
 
+	ringMod->setMix(generics[5]->mixParam.get());
+	ringMod->setBypassed(generics[5]->bypassParam.get());
 
-	int totalLatency;
-	for (int i = 0; i < numFXChains; ++i)
-	{
-		chains.getUnchecked(i)->clear();
-		chainLatency[i] = 0;
-		chainIncluded[i] = true;
-	}
+	fxLatency += ringMod->getLatency() * !ringMod->isBypassed();
 
-	if (routingParam.get()) //parallel
-	{
-		bool empty = bdsp::arrayMax(fxTypeParams, numFXSlots).get() == 0;
-		for (int i = 0; i < numFXChains; ++i)
-		{
-			if (!empty)
-			{
+	//================================================================================================================================================================================================
+	//Chorus
 
-				for (int j = 0; j < numFXPerChain; ++j)
-				{
-					int n = i * numFXPerChain + j;
-					chainLatency[i] += fxLatency[n];
-					++n;
-				}
-				chainIncluded[i] = true; // both are always included and mixed together
-			}
-
-		}
-		totalLatency = bdsp::arrayMax(chainLatency, numFXChains);
-
-		float parallelMixNorm = (parallelMixParam.get() + 1) / 2;
-
-		float mixA = 1 - parallelMixNorm;
-		float mixB = parallelMixNorm;
-
-		chains.getUnchecked(0)->setOutGain(mixA);
-		chains.getUnchecked(1)->setOutGain(mixB);
-
-		for (int i = 0; i < numFXChains; ++i)
-		{
-			for (int j = 0; j < numFXPerChain; ++j)
-			{
-				addFX(i, i * numFXPerChain + j);
-			}
-			//chains.getUnchecked(i)->setOutGain(gainAdjust);
-			latencyAdjusters.getUnchecked(i)->setDelay(totalLatency - chainLatency[i]);
-		}
-
-	}
-	else
-	{
-
-		chainIncluded[0] = true;
-		chainIncluded[1] = false;
-		chains.getFirst()->setOutGain(1);
-		latencyAdjusters.getFirst()->setDelay(0);
-		totalLatency = bdsp::arraySum(chainLatency, numFXChains);
-		for (int i = 0; i < numFXSlots; ++i)
-		{
-			addFX(0, i);
-		}
-
-	}
+	auto chorusRate = 1000.0f / bdsp::calculateTimeInMs(BPMFollow->getValue(), chorusRateTimeParam.get(), chorusRateFracParam.get(), chorusRateDivisionParam.get(), true);
+	chorus->setDelayChangeRate(chorusRate);
+	chorus->setDepth(chorusDepthParam.get());
+	chorus->setStereoWidth(chorusStereoParam.get());
+	chorus->setNumVoices(chorusVoicesParam.get());
 
 
+	chorus->setMix(generics[6]->mixParam.get());
+	chorus->setBypassed(generics[6]->bypassParam.get());
 
-	setLatencySamples(getBaseLatency() + totalLatency);
+	fxLatency += chorus->getLatency() * !chorus->isBypassed();
+
+	//================================================================================================================================================================================================
+	//Flanger
+
+	auto flangerRate = 1000.0f / bdsp::calculateTimeInMs(BPMFollow->getValue(), flangerRateTimeParam.get(), flangerRateFracParam.get(), flangerRateDivisionParam.get(), true);
+	flanger->setDelayChangeRate(flangerRate);
+	flanger->setBaseDelay(flangerBaseParam.get());
+	flanger->setDelayChangeMax(flangerDepthParam.get());
+	flanger->setStereoSpread(flangerStereoParam.get());
+	flanger->setFeedback(flangerFeedbackParam.get());
+
+
+	flanger->setMix(generics[7]->mixParam.get());
+	flanger->setBypassed(generics[7]->bypassParam.get());
+
+	fxLatency += flanger->getLatency() * !flanger->isBypassed();
+
+	//================================================================================================================================================================================================
+	//Phaser
+
+	auto phaserRate = 1000.0f / bdsp::calculateTimeInMs(BPMFollow->getValue(), phaserRateTimeParam.get(), phaserRateFracParam.get(), phaserRateDivisionParam.get(), true);
+	phaser->setPhaseChangeRate(phaserRate);
+	phaser->setCenterAndDepth(phaserCenterParam.getParameter()->getActualValueNormalized(), phaserDepthParam.get());
+	phaser->setStereoWidth(phaserStereoParam.get());
+	phaser->setFeedback(phaserFeedbackParam.get());
+
+	phaser->setMix(generics[8]->mixParam.get());
+	phaser->setBypassed(generics[8]->bypassParam.get());
+
+	fxLatency += phaser->getLatency() * !phaser->isBypassed();
+
+
+	//================================================================================================================================================================================================
+	//Panner
+
+	panner->setGain(pannerGainParam.get());
+	panner->setPan(pannerPanParam.get());
+	panner->setWidth(pannerWidthParam.get());
+
+	panner->setMix(generics[9]->mixParam.get());
+	panner->setBypassed(generics[9]->bypassParam.get());
+
+	fxLatency += panner->getLatency() * !panner->isBypassed();
+
+
+	//================================================================================================================================================================================================
+	//Noise
+
+	noise->setGain(noiseGainParam.get());
+	noise->setDryMix(noiseDryParam.get());
+	noise->setWetMix(1);
+	noise->setColor(noiseColorParam.get());
+	noise->setStereoWidth(noiseStereoParam.get());
+
+
+	noise->setMix(generics[10]->mixParam.get());
+	noise->setBypassed(generics[10]->bypassParam.get());
+
+	fxLatency += noise->getLatency() * !noise->isBypassed();
+
+
+
+
+
+
+
+	setLatencySamples(getBaseLatency() + fxLatency);
 }
 
 void FlexFXAudioProcessor::processSubBlock()
@@ -933,51 +676,19 @@ void FlexFXAudioProcessor::processSubBlock()
 	inputSource->trackBuffer(subBlockBuffer);
 	sidechainSource->trackBuffer(sideChainSubBlockBuffer);
 
-	for (int i = 0; i < numFXChains; ++i)
-	{
-		//chainBuffers.getUnchecked(i)->makeCopyOf(buffer);
-
-		auto* buff = chainBuffers.getUnchecked(i);
-		if (chainIncluded[i])
-		{
-			buff->makeCopyOf(subBlockBuffer);
-		}
-		else
-		{
-			buff->clear();
-		}
-
-
-		auto block = juce::dsp::AudioBlock<float>(*buff);
-		juce::dsp::ProcessContextReplacing<float> context(block);
-		latencyAdjusters.getUnchecked(i)->process(context);
-
-		chains.getUnchecked(i)->process(context);
-	}
 
 
 
+	auto block = juce::dsp::AudioBlock<float>(subBlockBuffer);
+	juce::dsp::ProcessContextReplacing<float> context(block);
+	latencyAdjuster->process(context);
 
-	juce::FloatVectorOperations::add(subBlockBuffer.getWritePointer(0), chainBuffers.getUnchecked(0)->getReadPointer(0), chainBuffers.getUnchecked(1)->getReadPointer(0), subBlockBuffer.getNumSamples());
-	juce::FloatVectorOperations::add(subBlockBuffer.getWritePointer(1), chainBuffers.getUnchecked(0)->getReadPointer(1), chainBuffers.getUnchecked(1)->getReadPointer(1), subBlockBuffer.getNumSamples());
-
-	for (int i = 2; i < numFXChains; ++i)
-	{
-		juce::FloatVectorOperations::add(subBlockBuffer.getWritePointer(0), chainBuffers.getUnchecked(i)->getReadPointer(0), subBlockBuffer.getNumSamples());
-		juce::FloatVectorOperations::add(subBlockBuffer.getWritePointer(1), chainBuffers.getUnchecked(i)->getReadPointer(1), subBlockBuffer.getNumSamples());
-	}
+	chain->process(context);
 
 }
 
 void FlexFXAudioProcessor::processSubBlockBypassed()
 {
-}
-
-bdsp::dsp::ProcessorChain<float>* FlexFXAudioProcessor::addFX(int chainIndex, int fxIndex)
-{
-
-	return chains.getUnchecked(chainIndex)->addProcessor(currentFXs.getUnchecked(fxIndex));
-
 }
 
 
@@ -997,68 +708,54 @@ void FlexFXAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 	inputSource->prepare(spec);
 	sidechainSource->prepare(spec);
 
-	chainBuffers.clear();
 
 
-	for (int i = 0; i < numFXSlots; ++i)
-	{
+	distortion->prepare(spec);
+	bitCrusher->prepare(spec);
+	filter->prepare(spec);
+	EQ->prepare(spec);
+	pitchShifter->prepare(spec);
+	ringMod->prepare(spec);
 
-		//emptyProcessors.getUnchecked(i)->prepare(spec);
-		distortions.getUnchecked(i)->prepare(spec);
-		bitCrushes.getUnchecked(i)->prepare(spec);
-		filters.getUnchecked(i)->prepare(spec);
-		EQs.getUnchecked(i)->prepare(spec);
-		pitchShifters.getUnchecked(i)->prepare(spec);
-		ringMods.getUnchecked(i)->prepare(spec);
-
-		ringModSources.getUnchecked(i)->prepare(spec);
-		ringModControllers.getUnchecked(i)->prepare(spec);
+	ringModSource->prepare(spec);
 
 
 
-		choruses.getUnchecked(i)->prepare(spec);
-		flangers.getUnchecked(i)->prepare(spec);
-		phasers.getUnchecked(i)->prepare(spec);
-		panners.getUnchecked(i)->prepare(spec);
+	chorus->prepare(spec);
+	flanger->prepare(spec);
+	phaser->prepare(spec);
+	panner->prepare(spec);
 
-		pannerMeterControllers.getUnchecked(i)->prepare(spec);
-		pannerMeterSources.getUnchecked(i)->prepare(spec);
+	pannerMeterController->prepare(spec);
+	pannerMeterSource->prepare(spec);
 
-		noises.getUnchecked(i)->prepare(spec);
+	noise->prepare(spec);
 
-	}
 
-	juce::Array<int> latencyVals;
-	latencyVals.add(distortions.getUnchecked(0)->getMaxLatency());
-	latencyVals.add(bitCrushes.getUnchecked(0)->getMaxLatency());
-	latencyVals.add(filters.getUnchecked(0)->getMaxLatency());
-	latencyVals.add(pitchShifters.getUnchecked(0)->getMaxLatency());
-	latencyVals.add(choruses.getUnchecked(0)->getMaxLatency());
-	latencyVals.add(flangers.getUnchecked(0)->getMaxLatency());
-	latencyVals.add(phasers.getUnchecked(0)->getMaxLatency());
-	latencyVals.add(panners.getUnchecked(0)->getMaxLatency());
 
-	latencyVals.add(noises.getUnchecked(0)->getMaxLatency());
+	int maxLatency = 0;
+	maxLatency += distortion->getMaxLatency();
+	maxLatency += bitCrusher->getMaxLatency();
+	maxLatency += filter->getMaxLatency();
+	maxLatency += pitchShifter->getMaxLatency();
+	maxLatency += chorus->getMaxLatency();
+	maxLatency += flanger->getMaxLatency();
+	maxLatency += phaser->getMaxLatency();
+	maxLatency += panner->getMaxLatency();
+
+	maxLatency += noise->getMaxLatency();
 
 
 
 
-	maxSingleFXLatency = bdsp::arrayMax(latencyVals);
 
+	chain->prepare(spec);
 
-	for (int i = 0; i < numFXChains; ++i)
-	{
-		chains.getUnchecked(i)->prepare(spec);
-		chainBuffers.add(new juce::AudioBuffer<float>(spec.numChannels, spec.maximumBlockSize));
+	latencyAdjuster->setMaxDelay(maxLatency);
+	latencyAdjuster->prepare(spec);
 
-		latencyAdjusters.getUnchecked(i)->setMaxDelay(numFXPerChain * maxSingleFXLatency);
-		latencyAdjusters.getUnchecked(i)->prepare(spec);
-	}
 
 	initParameters();
-
-
-
 }
 
 
@@ -1099,128 +796,152 @@ juce::AudioProcessorEditor* FlexFXAudioProcessor::createEditor()
 
 
 
+
 void FlexFXAudioProcessor::loadParameterPointers()
 {
+	generics.clear();
 
-	routingParam.setParameter(dynamic_cast<juce::AudioParameterBool*>(parameters->getParameter("RoutingID")));
-	parallelMixParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("ParallelMixID")));
+	//================================================================================================================================================================================================
+	//Distortion
+	auto distTypeParam = dynamic_cast<juce::AudioParameterChoice*>(parameters->getParameter("DistortionTypeID"));
+	distortionTypeParam.setParameter(distTypeParam);
+	distortion->setParameter(distTypeParam);
 
-	for (int i = 0; i < numFXChains; ++i)
+	distortionPreGainParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("DistortionPreGainID")));
+	distortionAmountParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("DistortionAmountID")));
+	distortionAGCParam.setParameter(dynamic_cast<juce::AudioParameterBool*>(parameters->getParameter("DistortionGainCompensationID")));
+
+	generics.add(new GenericFXParameters());
+	generics.getLast()->init(parameters.get(), "Distortion");
+
+
+	//================================================================================================================================================================================================
+	//Bit Crush
+
+	bitcrushDepthParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("BitCrushDepthID")));
+	bitcrushRateParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("BitCrushRateID")));
+
+	generics.add(new GenericFXParameters());
+	generics.getLast()->init(parameters.get(), "BitCrush");
+
+	//================================================================================================================================================================================================
+	//Filter
+
+	filterTypeParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("FilterTypeID")));
+	filterFreqParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("FilterFrequencyID")));
+	filterQParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("FilterResonanceID")));
+
+	generics.add(new GenericFXParameters());
+	generics.getLast()->init(parameters.get(), "Filter");
+
+	//================================================================================================================================================================================================
+	//EQ
+
+	EQGlobalGainParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("EQGlobalGainID")));
+	for (int j = 0; j < EQNumBands; ++j)
 	{
-		chainBypassParams[i].setParameter(dynamic_cast<juce::AudioParameterBool*>(parameters->getParameter("Chain" + bdsp::asciiCharToJuceString(65 + i) + "BypassID")));
+		EQFreqParams[j].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("EQBand" + juce::String(j) + "FrequencyID")));
+		EQBWParams[j].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("EQBand" + juce::String(j) + "QID")));
+		EQGainParams[j].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("EQBand" + juce::String(j) + "GainID")));
 	}
 
-	for (int i = 0; i < numFXSlots; ++i)
-	{
-		fxBypassParams[i].setParameter(dynamic_cast<juce::AudioParameterBool*>(parameters->getParameter("FX" + juce::String(i + 1) + "BypassID")));
-		fxTypeParams[i].setParameter(dynamic_cast<juce::AudioParameterChoice*>(parameters->getParameter("FX" + juce::String(i + 1) + "TypeID")));
-		fxMixParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("FX" + juce::String(i + 1) + "MixID")));
+	generics.add(new GenericFXParameters());
+	generics.getLast()->init(parameters.get(), "EQ");
 
-		//================================================================================================================================================================================================
-		//Distortion
-		auto distTypeParam = dynamic_cast<juce::AudioParameterChoice*>(parameters->getParameter("Distortion" + juce::String(i + 1) + "TypeID"));
-		distortionTypeParams[i].setParameter(distTypeParam);
-		distortions.getUnchecked(i)->setParameter(distTypeParam);
+	//================================================================================================================================================================================================
+	//Pitch Shift
 
-		distortionPreGainParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Distortion" + juce::String(i + 1) + "PreGainID")));
-		distortionAmountParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Distortion" + juce::String(i + 1) + "AmountID")));
-		distortionAGCParams[i].setParameter(dynamic_cast<juce::AudioParameterBool*>(parameters->getParameter("Distortion" + juce::String(i + 1) + "GainCompensationID")));
-
-		//================================================================================================================================================================================================
-		//Bit Crush
-
-		bitcrushDepthParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("BitCrush" + juce::String(i + 1) + "DepthID")));
-		bitcrushRateParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("BitCrush" + juce::String(i + 1) + "RateID")));
-
-		//================================================================================================================================================================================================
-		//Filter
-
-		filterTypeParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Filter" + juce::String(i + 1) + "TypeID")));
-		filterFreqParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Filter" + juce::String(i + 1) + "FrequencyID")));
-		filterQParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Filter" + juce::String(i + 1) + "ResonanceID")));
-
-		//================================================================================================================================================================================================
-		//EQ
-
-		EQGlobalGainParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("EQ" + juce::String(i + 1) + "GlobalGainID")));
-		for (int j = 0; j < EQNumBands; ++j)
-		{
-			EQFreqParams[i][j].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("EQ" + juce::String(i + 1) + "Band" + juce::String(j) + "FrequencyID")));
-			EQBWParams[i][j].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("EQ" + juce::String(i + 1) + "Band" + juce::String(j) + "QID")));
-			EQGainParams[i][j].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("EQ" + juce::String(i + 1) + "Band" + juce::String(j) + "GainID")));
-		}
+	pitchShiftLeftParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("PitchShiftLeftID")));
+	pitchShiftRightParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("PitchShiftRightID")));
+	pitchShiftLinkParam.setParameter(dynamic_cast<juce::AudioParameterBool*>(parameters->getParameter("PitchShiftLinkID")));
 
 
-		//================================================================================================================================================================================================
-		//Pitch Shift
+	generics.add(new GenericFXParameters());
+	generics.getLast()->init(parameters.get(), "PitchShift");
 
-		pitchShiftLeftParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("PitchShift" + juce::String(i + 1) + "LeftID")));
-		pitchShiftRightParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("PitchShift" + juce::String(i + 1) + "RightID")));
-		pitchShiftLinkParams[i].setParameter(dynamic_cast<juce::AudioParameterBool*>(parameters->getParameter("PitchShift" + juce::String(i + 1) + "LinkID")));
+	//================================================================================================================================================================================================
+	//Ring Mod
 
+	ringModSourceParam.setParameter(dynamic_cast<juce::AudioParameterChoice*>(parameters->getParameter("RingModSourceID")));
+	ringModShapeParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("RingModShapeID")));
+	ringModSkewParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("RingModSkewID")));
+	ringModFreqParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("RingModFrequencyID")));
 
-		//================================================================================================================================================================================================
-		//Ring Mod
+	generics.add(new GenericFXParameters());
+	generics.getLast()->init(parameters.get(), "RingMod");
 
-		ringModSourceParams[i].setParameter(dynamic_cast<juce::AudioParameterChoice*>(parameters->getParameter("RingMod" + juce::String(i + 1) + "SourceID")));
-		ringModShapeParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("RingMod" + juce::String(i + 1) + "ShapeID")));
-		ringModSkewParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("RingMod" + juce::String(i + 1) + "SkewID")));
-		ringModFreqParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("RingMod" + juce::String(i + 1) + "FrequencyID")));
+	//================================================================================================================================================================================================
+	//Chorus
 
-		//================================================================================================================================================================================================
-		//Chorus
-
-		chorusRateTimeParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Chorus" + juce::String(i + 1) + "RateHzRateID")));
-		chorusRateFracParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Chorus" + juce::String(i + 1) + "RateFractionID")));
-		chorusRateDivisionParams[i].setParameter(dynamic_cast<juce::AudioParameterChoice*>(parameters->getParameter("Chorus" + juce::String(i + 1) + "RateDivisionID")));
+	chorusRateTimeParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("ChorusRateHzRateID")));
+	chorusRateFracParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("ChorusRateFractionID")));
+	chorusRateDivisionParam.setParameter(dynamic_cast<juce::AudioParameterChoice*>(parameters->getParameter("ChorusRateDivisionID")));
 
 
-		chorusDepthParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Chorus" + juce::String(i + 1) + "DepthID")));
-		chorusStereoParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Chorus" + juce::String(i + 1) + "StereoID")));
-		chorusVoicesParams[i].setParameter(dynamic_cast<juce::AudioParameterInt*>(parameters->getParameter("Chorus" + juce::String(i + 1) + "VoicesID")));
-
-		//================================================================================================================================================================================================
-		//Flanger
-
-		flangerRateTimeParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Flanger" + juce::String(i + 1) + "RateHzRateID")));
-		flangerRateFracParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Flanger" + juce::String(i + 1) + "RateFractionID")));
-		flangerRateDivisionParams[i].setParameter(dynamic_cast<juce::AudioParameterChoice*>(parameters->getParameter("Flanger" + juce::String(i + 1) + "RateDivisionID")));
+	chorusDepthParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("ChorusDepthID")));
+	chorusStereoParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("ChorusStereoID")));
+	chorusVoicesParam.setParameter(dynamic_cast<juce::AudioParameterInt*>(parameters->getParameter("ChorusVoicesID")));
 
 
-		flangerBaseParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Flanger" + juce::String(i + 1) + "BaseID")));
-		flangerDepthParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Flanger" + juce::String(i + 1) + "DepthID")));
-		flangerStereoParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Flanger" + juce::String(i + 1) + "StereoID")));
-		flangerFeedbackParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Flanger" + juce::String(i + 1) + "FeedbackID")));
+	generics.add(new GenericFXParameters());
+	generics.getLast()->init(parameters.get(), "Chorus");
 
-		//================================================================================================================================================================================================
-		//Phaser
+	//================================================================================================================================================================================================
+	//Flanger
 
-		phaserRateTimeParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Phaser" + juce::String(i + 1) + "RateHzRateID")));
-		phaserRateFracParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Phaser" + juce::String(i + 1) + "RateFractionID")));
-		phaserRateDivisionParams[i].setParameter(dynamic_cast<juce::AudioParameterChoice*>(parameters->getParameter("Phaser" + juce::String(i + 1) + "RateDivisionID")));
+	flangerRateTimeParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("FlangerRateHzRateID")));
+	flangerRateFracParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("FlangerRateFractionID")));
+	flangerRateDivisionParam.setParameter(dynamic_cast<juce::AudioParameterChoice*>(parameters->getParameter("FlangerRateDivisionID")));
 
 
-		phaserCenterParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Phaser" + juce::String(i + 1) + "CenterID")));
-		phaserDepthParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Phaser" + juce::String(i + 1) + "DepthID")));
-		phaserStereoParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Phaser" + juce::String(i + 1) + "StereoID")));
-		phaserFeedbackParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Phaser" + juce::String(i + 1) + "FeedbackID")));
-		//	phaserStageParams[i].setParameter(dynamic_cast<juce::AudioParameterInt*>(parameters->getParameter("Phaser" + juce::String(i + 1) + "StageID")));
-			//================================================================================================================================================================================================
-			//Panner
+	flangerBaseParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("FlangerBaseID")));
+	flangerDepthParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("FlangerDepthID")));
+	flangerStereoParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("FlangerStereoID")));
+	flangerFeedbackParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("FlangerFeedbackID")));
 
-		pannerGainParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Panner" + juce::String(i + 1) + "GainID")));
-		pannerPanParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Panner" + juce::String(i + 1) + "PanID")));
-		pannerWidthParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Panner" + juce::String(i + 1) + "StereoWidthID")));
 
-		//================================================================================================================================================================================================
-		//Noise
+	generics.add(new GenericFXParameters());
+	generics.getLast()->init(parameters.get(), "Flanger");
 
-		noiseGainParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Noise" + juce::String(i + 1) + "GainID")));
-		noiseDryParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Noise" + juce::String(i + 1) + "DryGainID")));
-		noiseColorParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Noise" + juce::String(i + 1) + "ColorID")));
-		noiseStereoParams[i].setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("Noise" + juce::String(i + 1) + "StereoID")));
+	//================================================================================================================================================================================================
+	//Phaser
 
-	}
+	phaserRateTimeParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("PhaserRateHzRateID")));
+	phaserRateFracParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("PhaserRateFractionID")));
+	phaserRateDivisionParam.setParameter(dynamic_cast<juce::AudioParameterChoice*>(parameters->getParameter("PhaserRateDivisionID")));
+
+
+	phaserCenterParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("PhaserCenterID")));
+	phaserDepthParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("PhaserDepthID")));
+	phaserStereoParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("PhaserStereoID")));
+	phaserFeedbackParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("PhaserFeedbackID")));
+
+
+	generics.add(new GenericFXParameters());
+	generics.getLast()->init(parameters.get(), "Phaser");
+
+	//================================================================================================================================================================================================
+	//Panner
+
+	pannerGainParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("PannerGainID")));
+	pannerPanParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("PannerPanID")));
+	pannerWidthParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("PannerStereoWidthID")));
+
+
+	generics.add(new GenericFXParameters());
+	generics.getLast()->init(parameters.get(), "Panner");
+
+	//================================================================================================================================================================================================
+	//Noise
+
+	noiseGainParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("NoiseGainID")));
+	noiseDryParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("NoiseDryGainID")));
+	noiseColorParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("NoiseColorID")));
+	noiseStereoParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(parameters->getParameter("NoiseStereoID")));
+
+
+	generics.add(new GenericFXParameters());
+	generics.getLast()->init(parameters.get(), "Noise");
 }
 
 
@@ -1235,117 +956,122 @@ void FlexFXAudioProcessor::getParameterValues()
 {
 	bdsp::Processor::getParameterValues();
 
-	routingParam.load();
-	parallelMixParam.load();
-
-	for (int i = 0; i < numFXChains; ++i)
+	for (auto* g : generics)
 	{
-		chainBypassParams[i].load();
+		g->load();
 	}
 
-	for (int i = 0; i < numFXSlots; ++i)
+	//================================================================================================================================================================================================
+	//Distortion
+	auto distTypeParam = dynamic_cast<juce::AudioParameterChoice*>(parameters->getParameter("DistortionTypeID"));
+	distortionTypeParam.load();
+
+
+	distortionPreGainParam.load();
+	distortionAmountParam.load();
+	distortionAGCParam.load();
+
+
+	//================================================================================================================================================================================================
+	//Bit Crush
+
+	bitcrushDepthParam.load();
+	bitcrushRateParam.load();
+
+
+	//================================================================================================================================================================================================
+	//Filter
+
+	filterTypeParam.load();
+	filterFreqParam.load();
+	filterQParam.load();
+
+
+	//================================================================================================================================================================================================
+	//EQ
+
+	EQGlobalGainParam.load();
+	for (int j = 0; j < EQNumBands; ++j)
 	{
-
-		fxBypassParams[i].load();
-		fxTypeParams[i].load();
-		fxMixParams[i].load();
-
-		//================================================================================================================================================================================================
-		//Distortion
-		distortionPreGainParams[i].load();
-		distortionAmountParams[i].load();
-
-		distortionAGCParams[i].load();
-
-		//================================================================================================================================================================================================
-		//Bit Crush
-		bitcrushDepthParams[i].load();
-		bitcrushRateParams[i].load();
-
-		//================================================================================================================================================================================================
-		//Filter
-		filterTypeParams[i].load();
-		filterFreqParams[i].load();
-		filterQParams[i].load();
-
-
-		//================================================================================================================================================================================================
-		// EQ
-
-		EQGlobalGainParams[i].load();
-		for (int j = 0; j < EQNumBands; ++j)
-		{
-			EQFreqParams[i][j].load();
-			EQBWParams[i][j].load();
-			EQGainParams[i][j].load();
-		}
-
-
-		//================================================================================================================================================================================================
-		//Pitch Shift
-		pitchShiftLeftParams[i].load();
-		pitchShiftRightParams[i].load();
-		pitchShiftLinkParams[i].load();
-
-		//================================================================================================================================================================================================
-		//Ring Mod
-		ringModSourceParams[i].load();
-		ringModShapeParams[i].load();
-		ringModSkewParams[i].load();
-		ringModFreqParams[i].load();
-
-		//================================================================================================================================================================================================
-		//Chorus
-		chorusRateTimeParams[i].load();
-		chorusRateFracParams[i].load();
-		chorusRateDivisionParams[i].load();
-
-		chorusDepthParams[i].load();
-		chorusStereoParams[i].load();
-
-		chorusVoicesParams[i].load();
-
-		//================================================================================================================================================================================================
-		//Flanger
-		flangerRateTimeParams[i].load();
-		flangerRateFracParams[i].load();
-		flangerRateDivisionParams[i].load();
-
-		flangerBaseParams[i].load();
-		flangerDepthParams[i].load();
-		flangerStereoParams[i].load();
-		flangerFeedbackParams[i].load();
-
-		//================================================================================================================================================================================================
-		//Phaser
-		phaserRateTimeParams[i].load();
-		phaserRateFracParams[i].load();
-		phaserRateDivisionParams[i].load();
-
-		phaserCenterParams[i].loadNormalized();
-		phaserDepthParams[i].load();
-		phaserStereoParams[i].load();
-		phaserFeedbackParams[i].load();
-
-
-		//================================================================================================================================================================================================
-		//Panner
-
-		pannerGainParams[i].load();
-		pannerPanParams[i].load();
-		pannerWidthParams[i].load();
-
-
-
-		//================================================================================================================================================================================================
-		//Noise
-
-		noiseGainParams[i].load();
-		noiseDryParams[i].load();
-		noiseColorParams[i].load();
-		noiseStereoParams[i].load();
-
+		EQFreqParams[j].load();
+		EQBWParams[j].load();
+		EQGainParams[j].load();
 	}
+
+
+	//================================================================================================================================================================================================
+	//Pitch Shift
+
+	pitchShiftLeftParam.load();
+	pitchShiftRightParam.load();
+	pitchShiftLinkParam.load();
+
+
+	//================================================================================================================================================================================================
+	//Ring Mod
+
+	ringModSourceParam.load();
+	ringModShapeParam.load();
+	ringModSkewParam.load();
+	ringModFreqParam.load();
+
+	//================================================================================================================================================================================================
+	//Chorus
+
+	chorusRateTimeParam.load();
+	chorusRateFracParam.load();
+	chorusRateDivisionParam.load();
+
+
+	chorusDepthParam.load();
+	chorusStereoParam.load();
+	chorusVoicesParam.load();
+
+	//================================================================================================================================================================================================
+	//Flanger
+
+	flangerRateTimeParam.load();
+	flangerRateFracParam.load();
+	flangerRateDivisionParam.load();
+
+
+	flangerBaseParam.load();
+	flangerDepthParam.load();
+	flangerStereoParam.load();
+	flangerFeedbackParam.load();
+
+
+	//================================================================================================================================================================================================
+	//Phaser
+
+	phaserRateTimeParam.load();
+	phaserRateFracParam.load();
+	phaserRateDivisionParam.load();
+
+
+	phaserCenterParam.load();
+	phaserDepthParam.load();
+	phaserStereoParam.load();
+	phaserFeedbackParam.load();
+
+
+	//================================================================================================================================================================================================
+	//Panner
+
+	pannerGainParam.load();
+	pannerPanParam.load();
+	pannerWidthParam.load();
+
+
+	//================================================================================================================================================================================================
+	//Noise
+
+	noiseGainParam.load();
+	noiseDryParam.load();
+	noiseColorParam.load();
+	noiseStereoParam.load();
+
+
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -1359,5 +1085,17 @@ bool FlexFXAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) co
 	bool sidechain = juce::isPositiveAndBelow(layouts.inputBuses.size(), 3);
 	return inNum && outNum && inActive && outActive && sidechain;
 }
-
 #endif
+//
+//void FlexFXAudioProcessor::reorderProcessors(int indexMoved, int indexMovedTo)
+//{
+//	processorOrder.move(indexMoved, indexMovedTo);
+//	for (int i = 0; i < processorOrder.size(); ++i)
+//	{
+//		auto indexParam = generics[processorOrder[i]]->indexParam.getParameter();
+//		indexParam->beginChangeGesture();
+//		indexParam->setValueNotifyingHost(indexParam->convertTo0to1(i));
+//		indexParam->endChangeGesture();
+//	}
+//}
+
