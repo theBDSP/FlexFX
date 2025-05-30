@@ -52,6 +52,7 @@ public:
 	juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout() override;
 
 
+
 #ifndef JucePlugin_PreferredChannelConfigurations
 	bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
 #endif
@@ -94,28 +95,26 @@ public:
 		{
 			mixParam.setParameter(dynamic_cast<bdsp::ControlParameter*>(APVTS->getParameter(name + "MixID")));
 			bypassParam.setParameter(dynamic_cast<juce::AudioParameterBool*>(APVTS->getParameter(name + "BypassID")));
-			indexParam.setParameter(dynamic_cast<juce::AudioParameterInt*>(APVTS->getParameter(name + "IndexID")));
 		}
 		void load()
 		{
 			mixParam.load();
 			bypassParam.load();
-			indexParam.load();
 		}
 
 
 
 		bdsp::ParameterPointerControl mixParam;
 		bdsp::ParameterPointerBool bypassParam;
-		bdsp::ParameterPointerInt indexParam;
 	};
 
 	juce::OwnedArray<GenericFXParameters> generics;
 
-	void reorderProcessors(int indexMoved, int indexMovedTo);
+	std::unique_ptr<bdsp::OrderedListParameter>fxOrderParam;
+
 private:
 
-	juce::Array<int> processorOrder;
+
 
 	std::unique_ptr<bdsp::dsp::ProcessorChain<float>> chain;
 
@@ -124,6 +123,8 @@ private:
 	std::unique_ptr<bdsp::dsp::DelayLineBase<float>> latencyAdjuster; // changes input delay for each chain to align for latency of FX
 
 	int fxLatency;
+
+	//================================================================================================================================================================================================
 
 
 
@@ -293,8 +294,9 @@ private:
 
 
 
-	//================================================================================================================================================================================================
 
+	//================================================================================================================================================================================================
+	
 	void createBypassAndMixParam(juce::AudioProcessorValueTreeState::ParameterLayout& layout, const juce::String& FXName, int defaultIndex);
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FlexFXAudioProcessor)

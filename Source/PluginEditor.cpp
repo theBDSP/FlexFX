@@ -4,7 +4,7 @@
 
 
 constexpr auto TopBarH = 0.08;
-constexpr auto MacroH = 0.1;
+constexpr auto MacroH = 0.125;
 constexpr auto HintH = 0.05;
 constexpr auto FXW = 0.5;
 
@@ -28,7 +28,7 @@ FlexFXAudioProcessorEditor::FlexFXAudioProcessorEditor(FlexFXAudioProcessor& p)
 
 	init();
 
-	titleBar = std::make_unique<bdsp::TexturedContainerComponent>(&GUIUniversals, BDSP_COLOR_DARK, bdsp::NamedColorsIdentifier(), true);
+	titleBar = std::make_unique<bdsp::Component>(&GUIUniversals);
 
 	titleBar->addAndMakeVisible(topLevelComp->preset->titleBar);
 	titleBar->addAndMakeVisible(topLevelComp->undoRedo.get());
@@ -73,7 +73,7 @@ FlexFXAudioProcessorEditor::FlexFXAudioProcessorEditor(FlexFXAudioProcessor& p)
 
 
 
-	topLevelComp->Alert->setRelativeSize(0.75f, 0.6f);
+	topLevelComp->Alert->setRelativeSize(0.618f, 0.618f);
 	topLevelComp->Alert->setFonts(2, 1);
 
 
@@ -82,22 +82,32 @@ FlexFXAudioProcessorEditor::FlexFXAudioProcessorEditor(FlexFXAudioProcessor& p)
 	topLevelComp->sidebarAspectRatio = aspectRatioOpen;
 
 
+	modulationTabs = std::make_unique<bdsp::TabsComponent>(&GUIUniversals, juce::StringArray({ "LFOs","ENVs","SEQs" }));
+	modulationTabs->setVertical(false);
+	modulationTabs->setColors(BDSP_COLOR_BLACK, BDSP_COLOR_WHITE, BDSP_COLOR_DARK);
+	modulationTabs->setTabRatio(0.1);
+	topLevelComp->addAndMakeVisible(modulationTabs.get());
 
-	topLevelComp->addAndMakeVisible(LFOs);
-	topLevelComp->addAndMakeVisible(EnvelopeFollowers);
+
+	modulationTabs->getPage(0)->addAndMakeVisible(LFOs);
+	modulationTabs->getPage(1)->addAndMakeVisible(EnvelopeFollowers);
+	modulationTabs->getPage(2)->addAndMakeVisible(Sequencers);
 
 
 	topLevelComp->addComponent(Macros);
 
 
-	LFOs->setColors(bdsp::NamedColorsIdentifier());
-	EnvelopeFollowers->setColors(bdsp::NamedColorsIdentifier());
+	LFOs->setColors(BDSP_COLOR_BLACK);
+	EnvelopeFollowers->setColors(BDSP_COLOR_BLACK);
+	Sequencers->setColors(BDSP_COLOR_BLACK);
+
 	Macros->setColors(bdsp::NamedColorsIdentifier());
 	Macros->shouldDrawDivider = false;
 
 	Macros->setTitleFontIndex(1);
 	LFOs->setTitleFontIndex(1);
 	EnvelopeFollowers->setTitleFontIndex(1);
+	Sequencers->setTitleFontIndex(1);
 
 
 	LFOs->setVertical(true);
@@ -151,7 +161,7 @@ FlexFXAudioProcessorEditor::FlexFXAudioProcessorEditor(FlexFXAudioProcessor& p)
 
 	topLevelComp->paintOverChildrenFunction = [=](juce::Graphics& g)
 	{
-		bdsp::drawDivider(g, juce::Line<float>(macroArea.getRelativePoint(0.0, 0.0), macroArea.getRelativePoint(0.0, 1.0)), GUIUniversals.colors.getColor(BDSP_COLOR_MID), GUIUniversals.dividerSize);
+		//bdsp::drawDivider(g, juce::Line<float>(macroArea.getRelativePoint(0.0, 0.0), macroArea.getRelativePoint(0.0, 1.0)), GUIUniversals.colors.getColor(BDSP_COLOR_MID), GUIUniversals.dividerSize);
 
 
 
@@ -164,7 +174,8 @@ FlexFXAudioProcessorEditor::FlexFXAudioProcessorEditor(FlexFXAudioProcessor& p)
 
 		g.setColour(GUIUniversals.colors.getColor(BDSP_COLOR_PURE_BLACK));
 		auto x = fxSlotManager->dragBoxes.getFirst()->getBoundsRelativeToDesktopManager().getRight() + GUIUniversals.rectThicc;
-		g.drawVerticalLine(x, FXArea.getY(), FXArea.getBottom());
+		bdsp::drawDivider(g, juce::Line<float>(x, FXArea.getY() + GUIUniversals.tabBorderSize, x, FXArea.getBottom() - GUIUniversals.tabBorderSize), GUIUniversals.colors.getColor(BDSP_COLOR_MID), GUIUniversals.dividerSize);
+		//g.drawVerticalLine(x, FXArea.getY(), FXArea.getBottom());
 	};
 
 
@@ -203,15 +214,16 @@ void FlexFXAudioProcessorEditor::paint(juce::Graphics& g)
 	g.setColour(GUIUniversals.colors.getColor(BDSP_COLOR_PURE_BLACK));
 	g.fillAll();
 
-	g.setColour(GUIUniversals.colors.getColor(BDSP_COLOR_DARK));
-	g.fillRoundedRectangle(topBarArea, GUIUniversals.roundedRectangleCurve);
+	bdsp::drawOutlinedRoundedRectangle(g, topBarArea, bdsp::CornerCurves::all, GUIUniversals.roundedRectangleCurve, GUIUniversals.tabBorderSize, GUIUniversals.colors.getColor(BDSP_COLOR_DARK), GUIUniversals.colors.getColor(BDSP_COLOR_BLACK));
 
 
+	bdsp::drawOutlinedRoundedRectangle(g, macroArea, bdsp::CornerCurves::all, GUIUniversals.roundedRectangleCurve, GUIUniversals.tabBorderSize, GUIUniversals.colors.getColor(BDSP_COLOR_BLACK), GUIUniversals.colors.getColor(BDSP_COLOR_DARK));
 
-	g.fillRoundedRectangle(macroArea, GUIUniversals.roundedRectangleCurve);
-	g.fillRoundedRectangle(LFOArea, GUIUniversals.roundedRectangleCurve);
-	g.fillRoundedRectangle(ENVArea, GUIUniversals.roundedRectangleCurve);
-	g.fillRoundedRectangle(FXArea, GUIUniversals.roundedRectangleCurve);
+	bdsp::drawOutlinedRoundedRectangle(g, FXArea, bdsp::CornerCurves::all, GUIUniversals.roundedRectangleCurve, GUIUniversals.tabBorderSize, GUIUniversals.colors.getColor(BDSP_COLOR_DARK), GUIUniversals.colors.getColor(BDSP_COLOR_BLACK));
+	if (getTopLevelGUIComponent()->sidebarOpen)
+	{
+		bdsp::drawOutlinedRoundedRectangle(g, getTopLevelGUIComponent()->sideBarContainer->getBounds().toFloat(), bdsp::CornerCurves::all, GUIUniversals.roundedRectangleCurve, GUIUniversals.tabBorderSize, GUIUniversals.colors.getColor(BDSP_COLOR_DARK), GUIUniversals.colors.getColor(BDSP_COLOR_BLACK));
+	}
 
 }
 
@@ -238,6 +250,7 @@ void FlexFXAudioProcessorEditor::resized()
 
 		GUIUniversals.roundedRectangleCurve = w / 150.0;
 		GUIUniversals.listBorderSize = GUIUniversals.rectThicc / 4;
+		GUIUniversals.tabBorderSize = GUIUniversals.rectThicc / 3;
 		GUIUniversals.dividerSize = GUIUniversals.rectThicc / 6;
 		GUIUniversals.dividerBorder = GUIUniversals.rectThicc;
 		GUIUniversals.influenceHoverMenuHeight = h / 11.0 * GUIUniversals.systemScaleFactor;
@@ -250,8 +263,13 @@ void FlexFXAudioProcessorEditor::resized()
 
 		macroArea = topLevelComp->mainArea.getBounds().toFloat().getProportion(juce::Rectangle<float>(FXW, TopBarH, 1 - FXW, MacroH)).reduced(GUIUniversals.rectThicc);
 
-		LFOArea = topLevelComp->mainArea.getBounds().toFloat().getProportion(juce::Rectangle<float>(FXW, TopBarH + MacroH, 1 - FXW, (1 - HintH - TopBarH - MacroH) / 2)).reduced(GUIUniversals.rectThicc);
-		ENVArea = topLevelComp->mainArea.getBounds().toFloat().getProportion(juce::Rectangle<float>(FXW, TopBarH + MacroH + (1 - HintH - TopBarH - MacroH) / 2, 1 - FXW, (1 - HintH - TopBarH - MacroH) / 2)).reduced(GUIUniversals.rectThicc);
+		modulationTabs->setBounds(bdsp::shrinkRectangleToInt(topLevelComp->mainArea.getBounds().toFloat().getProportion(juce::Rectangle<float>(FXW, TopBarH + MacroH, 1 - FXW, (1 - HintH - TopBarH - MacroH))).reduced(GUIUniversals.rectThicc)));
+
+		Macros->setBounds(bdsp::shrinkRectangleToInt(macroArea));
+
+		LFOs->setBounds(bdsp::shrinkRectangleToInt(modulationTabs->getUsableArea().withZeroOrigin().reduced(GUIUniversals.rectThicc)));
+		EnvelopeFollowers->setBounds(bdsp::shrinkRectangleToInt(modulationTabs->getUsableArea().withZeroOrigin().reduced(GUIUniversals.rectThicc)));
+		Sequencers->setBounds(bdsp::shrinkRectangleToInt(modulationTabs->getUsableArea().withZeroOrigin().reduced(GUIUniversals.rectThicc)));
 
 
 
@@ -260,23 +278,19 @@ void FlexFXAudioProcessorEditor::resized()
 
 		titleBar->setBounds(bdsp::shrinkRectangleToInt(topBarArea));
 
-		topLevelComp->preset->titleBar.setBounds(bdsp::shrinkRectangleToInt(titleBar->getLocalBounds().getProportion(juce::Rectangle<float>(0.25, 0.15, 0.5, 0.7))));
-		topLevelComp->undoRedo->setBounds(bdsp::shrinkRectangleToInt(titleBar->getLocalBounds().getProportion(juce::Rectangle<float>(0.85, 0.2, 0.15, 0.6)).reduced(GUIUniversals.rectThicc)));
-		topLevelComp->settingsButton.setBounds(bdsp::shrinkRectangleToInt(titleBar->getLocalBounds().getProportion(juce::Rectangle<float>(0.75, 0.2, 0.1, 0.6)).reduced(GUIUniversals.rectThicc)));
+		topLevelComp->preset->titleBar.setBounds(bdsp::shrinkRectangleToInt(titleBar->getLocalBounds().getProportion(juce::Rectangle<float>(0.2, 0.15, 0.6, 0.7))));
+		topLevelComp->undoRedo->setBounds(bdsp::shrinkRectangleToInt(titleBar->getLocalBounds().getProportion(juce::Rectangle<float>(0.875, 0.2, 0.125, 0.6)).reduced(GUIUniversals.rectThicc)));
+		topLevelComp->settingsButton.setBounds(bdsp::shrinkRectangleToInt(titleBar->getLocalBounds().getProportion(juce::Rectangle<float>(0.8, 0.2, 0.075, 0.6)).reduced(GUIUniversals.rectThicc)));
 
 		//topLevelComp->logo->setBounds(bdsp::shrinkRectangleToInt(titleBar->getLocalBounds().getProportion(juce::Rectangle<float>(0, 0.15, 0.05, 0.7)).reduced(0, GUIUniversals.rectThicc)));
 
-		title->setBounds(bdsp::shrinkRectangleToInt(titleBar->getLocalBounds().getProportion(juce::Rectangle<float>(0, 0.1, 0.25, 0.8)).reduced(GUIUniversals.rectThicc)));
+		title->setBounds(bdsp::shrinkRectangleToInt(titleBar->getLocalBounds().getProportion(juce::Rectangle<float>(0, 0.1, 0.2, 0.8)).reduced(GUIUniversals.rectThicc)));
 
 		//================================================================================================================================================================================================
 
-		LFOs->setBounds(bdsp::shrinkRectangleToInt(LFOArea.reduced(GUIUniversals.rectThicc)));
-		EnvelopeFollowers->setBounds(bdsp::shrinkRectangleToInt(ENVArea.reduced(GUIUniversals.rectThicc)));
-		Macros->setBounds(bdsp::shrinkRectangleToInt(macroArea.reduced(GUIUniversals.rectThicc)));
-
 		for (int i = 0; i < BDSP_NUMBER_OF_MACROS; ++i)
 		{
-			Macros->getMacro(i)->setBounds(bdsp::shrinkRectangleToInt(Macros->getLocalBounds().getProportion(juce::Rectangle<float>(i * 1.0 / BDSP_NUMBER_OF_MACROS, 0, 1.0 / BDSP_NUMBER_OF_MACROS, 1)).reduced(GUIUniversals.rectThicc, 0)));
+			Macros->getMacro(i)->setBounds(bdsp::shrinkRectangleToInt(Macros->getLocalBounds().getProportion(juce::Rectangle<float>(i * 1.0 / BDSP_NUMBER_OF_MACROS, 0, 1.0 / BDSP_NUMBER_OF_MACROS, 1)).reduced(GUIUniversals.rectThicc)));
 		}
 
 
@@ -460,17 +474,7 @@ void FlexFXAudioProcessorEditor::FXSlot::resized()
 }
 
 
-void FlexFXAudioProcessorEditor::FXSlot::visibilityChanged()
-{
 
-	FXSection->setVisible(isVisible());
-
-	for (auto c : FXSection->getChildren())
-	{
-		c->setVisible(isVisible());
-	}
-
-}
 
 
 
@@ -516,6 +520,7 @@ FlexFXAudioProcessorEditor::AnimatedTitle::AnimatedTitle(FlexFXAudioProcessorEdi
 	e = parent;
 	e->titleBar->addAndMakeVisible(this);
 
+	glDepthOrder = bdsp::OpenGLComponent::RenderPosition::Front;
 
 	background = BDSP_COLOR_DARK;
 	vertexBuffer.resize(4);
@@ -727,10 +732,11 @@ void FlexFXAudioProcessorEditor::AnimatedTitle::generateVertexBuffer()
 FlexFXAudioProcessorEditor::FXChainManager::FXChainManager(FlexFXAudioProcessorEditor* editor)
 	:bdsp::RearrangableComponentManagerBase(&editor->GUIUniversals),
 	vp(&editor->GUIUniversals),
-	vpComp(&editor->GUIUniversals),
-	fxSorter(dynamic_cast<FlexFXAudioProcessor*>(&editor->audioProcessor))
+	vpComp(&editor->GUIUniversals)
 {
 	p = editor;
+	orderState = dynamic_cast<FlexFXAudioProcessor*>(&editor->processor)->fxOrderParam.get();
+
 	//instantSwap = false;
 	auto proc = dynamic_cast<FlexFXAudioProcessor*>(&p->audioProcessor);
 
@@ -743,101 +749,113 @@ FlexFXAudioProcessorEditor::FXChainManager::FXChainManager(FlexFXAudioProcessorE
 		dragBoxes.getLast()->addAndMakeVisible(fxSlots.getLast()->getFxSection()->getBypassButton().get());
 		vpComp.addChildComponent(comps.getLast());
 
-		auto prevFunc = fxSlots[i]->getFxSection()->getBypassButton()->onStateChange;
-		fxSlots[i]->getFxSection()->getBypassButton()->onStateChange = [=]()
+		auto prevFunc = fxSlots[i]->getFxSection()->getBypassButton()->onClick;
+		fxSlots[i]->getFxSection()->getBypassButton()->onClick = [=]()
 		{
 			prevFunc();
-			for (auto* fx : fxSlots)
-			{
-				fx->setVisible(!fx->getFxSection()->getBypassButton()->getToggleState());
-			}
+
+			fxSlots[i]->setVisible(!fxSlots[i]->getFxSection()->getBypassButton()->getToggleState());
+
 			resized();
+			componentMovedOrResized(vpComp, true, true);
 		};
 
-		fxSlots.getLast()->getFxSection()->getBypassButton()->onStateChange();
 
 		setDragColor(i, p->FXTypeNames->operator[](i));
 		setDragText(i, p->FXTypeNames->operator[](i));
 
-		proc->generics[i]->indexParam.getParameter()->addListener(this);
 
 		dragBoxes[i]->dragger.setFontIndex(0);
 		dragBoxes[i]->setColors(BDSP_COLOR_BLACK);
 
 	}
+	for (int i = 0; i < p->FXTypeNames->size(); ++i)
+	{
+		fxSlots[i]->getFxSection()->getBypassButton()->onClick();
+	}
 
 	onComponentOrderChanged = [=](int indexMoved, int indexMovedTo)
 	{
-		currentlyReording = true;
-		fxSlots.move(indexMoved, indexMovedTo);
-
-		for (int i = 0; i < fxSlots.size(); ++i)
-		{
-			auto* param = fxSlots[i]->getFxSection()->getIndexParameter();
-			param->beginChangeGesture();
-			param->setValueNotifyingHost(param->convertTo0to1(i));
-			param->endChangeGesture();
-		}
-
-		currentlyReording = false;
-		resized();
-
+		//orderState->moveSingleItem(indexMoved, indexMovedTo);
+		vp.setViewPosition(0, fxSlots[orderState->getOrder()[indexMovedTo]]->getY());
 	};
+
+	attach(orderState);
+
+	//dragBoxPaintFunc = [=](juce::Graphics& g, DragBox* db)
+	//{
+	//	bdsp::drawOutlinedRoundedRectangle(g, db->getLocalBounds().toFloat(), bdsp::CornerCurves::all, universals->roundedRectangleCurve, universals->tabBorderSize, getColor(BDSP_COLOR_BLACK), getColor(BDSP_COLOR_MID));
+	//};
+
 
 	vp.setScrollBarsShown(true, false);
 	vp.addAndMakeVisible(vpComp);
 	vp.setViewedComponent(&vpComp);
 
+	vpComp.addComponentListener(this);
+
 	vp.setScrollColor(BDSP_COLOR_LIGHT);
 
 	addAndMakeVisible(vp);
+
+
 
 }
 
 
 void FlexFXAudioProcessorEditor::FXChainManager::resized()
 {
-	vp.setBounds(getLocalBounds());
-
-
-	vp.setScrollDistance(getHeight() / 10);
-
-	float borderRatio = 0.01;
-
-	vp.setScrollBarThickness(universals->rectThicc * 2);
-
-	auto mainBounds = getLocalBounds().toFloat().withTrimmedRight(vp.getScrollBarThickness()).withTrimmedLeft(getWidth() * 0.25);
-	juce::Rectangle<int> bounds;
-
-	dragHandleBounds = getLocalBounds().toFloat().withRight(mainBounds.getX() - universals->rectThicc);
-	float currentY = 0;
-	for (int i = 0; i < comps.size(); ++i)
+	if (!fxSlots.isEmpty())
 	{
-		if (fxSlots[i]->isVisible())
+
+
+		bool wasResized = vp.getBounds() != getLocalBounds();
+
+		vp.setScrollDistance(getHeight() / 10);
+
+		float borderRatio = 0.01;
+
+		vp.setScrollBarThickness(1.5 * universals->rectThicc);
+
+		auto mainBounds = getLocalBounds().toFloat().withTrimmedRight(vp.getScrollBarThickness()).withTrimmedLeft(getWidth() * 0.25);
+		juce::Rectangle<int> bounds;
+
+		dragHandleBounds = getLocalBounds().toFloat().withRight(mainBounds.getX() - universals->rectThicc);
+		float currentY = 0;
+
+		auto fxOrder = orderState->getOrder();
+		for (int i = 0; i < comps.size(); ++i)
 		{
-			auto h = mainBounds.getWidth() / fxSlots[i]->getFxSection()->getDesiredAspectRatio();
-			bounds = bdsp::shrinkRectangleToInt(juce::Rectangle<float>(mainBounds.getX(), currentY, mainBounds.getWidth(), h).reduced(universals->rectThicc));
-			fxSlots[i]->setBounds(bounds);
-			currentY += h;
+			auto currentFX = fxSlots[fxOrder[i]];
+			if (currentFX->isVisible())
+			{
+				auto h = mainBounds.getWidth() / currentFX->getFxSection()->getDesiredAspectRatio();
+				bounds = bdsp::shrinkRectangleToInt(juce::Rectangle<float>(mainBounds.getX(), currentY, mainBounds.getWidth(), h).reduced(universals->rectThicc));
+				currentFX->setBounds(bounds);
+				currentY += h;
+			}
+
+			draggerSlots[i]->setBounds(bdsp::shrinkRectangleToInt(dragHandleBounds.getProportion(juce::Rectangle<float>(0, (float)i / comps.size(), 1, 1.0 / comps.size()))).reduced(0, universals->rectThicc));
+			fxSlots[i]->getFxSection()->getBypassButton()->setBounds(juce::Rectangle<int>(0, 0, draggerSlots[i]->getWidth() * 0.2, draggerSlots[i]->getHeight()).reduced(universals->rectThicc / 2));
+			dragBoxes[i]->dragger.setBounds(draggerSlots[i]->getLocalBounds().reduced(universals->rectThicc / 2).withLeft(fxSlots[i]->getFxSection()->getBypassButton()->getRight() + 2 * universals->rectThicc));
+			fxSlots[i]->getFxSection()->getBypassButton()->setCornerRadius(universals->roundedRectangleCurve - universals->rectThicc / 2);
 		}
-		draggerSlots[i]->setBounds(bdsp::shrinkRectangleToInt(dragHandleBounds.getProportion(juce::Rectangle<float>(0, (float)i / comps.size(), 1, 1.0 / comps.size()))).reduced(0, universals->rectThicc / 2));
-		dragBoxes[i]->dragger.setBounds(draggerSlots[i]->getLocalBounds().withLeft(draggerSlots[i]->getWidth() * 0.25));
-		fxSlots[i]->getFxSection()->getBypassButton()->setBounds(0, 0, draggerSlots[i]->getWidth() * 0.2, draggerSlots[i]->getHeight());
-	}
 
-	for (auto* b : dragBoxes)
-	{
-		int idx = orderedDragBoxes.indexOf(b);
-		b->setBounds(draggerSlots[idx]->getBounds());
-	}
+		for (auto* b : dragBoxes)
+		{
+			int idx = orderedDragBoxes.indexOf(b);
+			b->setBounds(draggerSlots[idx]->getBounds());
+		}
 
-	if (!getBounds().isEmpty())
-	{
-		auto vpPos = (float)vp.getViewPositionY() / vp.getHeight();
+		if (!getBounds().isEmpty() && wasResized)
+		{
+			auto vpPos = (float)vp.getViewPositionY() / vpComp.getHeight();
+			vp.setViewPosition(0, vpPos * vpComp.getHeight());
+		}
 		vpComp.setSize(getWidth(), currentY + universals->rectThicc);
-		vp.setViewPosition(0, vpPos * vpComp.getHeight());
-	}
 
+		vp.setBounds(getLocalBounds());
+	}
 }
 
 void FlexFXAudioProcessorEditor::FXChainManager::paint(juce::Graphics& g)
@@ -848,19 +866,6 @@ void FlexFXAudioProcessorEditor::FXChainManager::paint(juce::Graphics& g)
 }
 
 
-
-void FlexFXAudioProcessorEditor::FXChainManager::parameterValueChanged(int parameterIndex, float newValue)
-{
-	if (!currentlyReording)
-	{
-		fxSlots.sort(fxSorter, true);
-		resized();
-	}
-}
-
-void FlexFXAudioProcessorEditor::FXChainManager::parameterGestureChanged(int parameterIndex, bool gestureIsStarting)
-{
-}
 
 
 

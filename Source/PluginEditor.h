@@ -28,10 +28,10 @@ public:
 
 
 
-	std::unique_ptr<bdsp::BasicContainerComponent> titleBar;
+	std::unique_ptr<bdsp::Component> titleBar;
 
 
-
+	std::unique_ptr<bdsp::TabsComponent> modulationTabs;
 
 
 
@@ -48,7 +48,7 @@ private:
 
 
 
-	juce::Rectangle<float> topBarArea, LFOArea, ENVArea, macroArea, FXArea, hintBarArea;
+	juce::Rectangle<float> topBarArea, macroArea, FXArea, hintBarArea;
 
 
 	class FXUI : public bdsp::Component
@@ -138,7 +138,7 @@ private:
 			bypass = std::make_unique<bdsp::TextButton>(universals);
 			bypass->setClickingTogglesState(true);
 			bypass->setComponentID("BypassID");
-			bypass->onStateChange = [=]()
+			bypass->onClick = [=]()
 			{
 				//for (auto* c : getChildren())
 				//{
@@ -488,7 +488,7 @@ private:
 			tabs = std::make_unique< bdsp::TabsComponent>(universals, tabNames);
 			tabs->setVertical(false);
 			tabs->setTabRatio(0.25);
-			tabs->setColors(BDSP_COLOR_DARK, color);
+			tabs->setColors(BDSP_COLOR_DARK, BDSP_COLOR_MID, color, BDSP_COLOR_PURE_BLACK);
 			addAndMakeVisible(tabs.get());
 
 			createMixAndBypass("EQ", color);
@@ -608,6 +608,7 @@ private:
 				gainSliders[i]->setBounds(bdsp::shrinkRectangleToInt(tabBounds.getProportion(juce::Rectangle<float>(2.0 / 3.0, 0, 1.0 / 3.0, 1)).reduced(universals->rectThicc)));
 			}
 
+			visualizer->getVis()->setHandleSize(2 * universals->visualizerLineThickness, 5 * universals->visualizerLineThickness, universals->visualizerLineThickness);
 			visualizer->setBounds(bdsp::shrinkRectangleToInt(usableRect.getProportion(juce::Rectangle<float>(1 - visW, tabH, visW, 1 - tabH)).reduced(universals->rectThicc)));
 		}
 
@@ -651,7 +652,6 @@ private:
 			auto linkDummyName = "Pitch Shift Link Dummy";
 			linkDummySlider = std::make_unique<bdsp::RangedCircleSlider>(universals, linkDummyName);
 			bdsp::CircleSlider& currentDummy = *linkDummySlider.get();
-
 
 
 
@@ -770,7 +770,6 @@ private:
 			};
 
 			linkButton->attach(*e->audioProcessor.parameters.get(), "PitchShiftLinkID");
-
 		}
 
 		void resized() override
@@ -797,6 +796,8 @@ private:
 		{
 			return 2.25;
 		}
+
+
 
 	private:
 
@@ -894,9 +895,9 @@ private:
 			sourceLabel->setBounds(juce::Rectangle<int>().leftTopRightBottom(sourceCombo->getX(), mixSlider->getY() + mixSlider->slider.getTrackBounds(true).getBottom(), sourceCombo->getRight(), mixSlider->getBottom()));
 
 
-			freqSlider->setBounds(bdsp::shrinkRectangleToInt(usableRect.getProportion(juce::Rectangle<float>(visW, 0.5, (1-visW)/3.0, 0.5)).reduced(universals->rectThicc)));
+			freqSlider->setBounds(bdsp::shrinkRectangleToInt(usableRect.getProportion(juce::Rectangle<float>(visW, 0.5, (1 - visW) / 3.0, 0.5)).reduced(universals->rectThicc)));
 			shapeSlider->setBounds(bdsp::shrinkRectangleToInt(usableRect.getProportion(juce::Rectangle<float>(visW + (1 - visW) / 3.0, 0.5, (1 - visW) / 3.0, 0.5)).reduced(universals->rectThicc)));
-			skewSlider->setBounds(bdsp::shrinkRectangleToInt(usableRect.getProportion(juce::Rectangle<float>(visW+2* (1 - visW) / 3.0, 0.5, (1 - visW) / 3.0, 0.5)).reduced(universals->rectThicc)));
+			skewSlider->setBounds(bdsp::shrinkRectangleToInt(usableRect.getProportion(juce::Rectangle<float>(visW + 2 * (1 - visW) / 3.0, 0.5, (1 - visW) / 3.0, 0.5)).reduced(universals->rectThicc)));
 
 			visualizer->setBounds(bdsp::shrinkRectangleToInt(usableRect.getProportion(juce::Rectangle<float>(0, 0.5, visW, 0.5)).reduced(universals->rectThicc)));
 
@@ -1292,7 +1293,7 @@ private:
 		void resized() override
 		{
 			FXUI::resized();
-			
+
 			auto visW = usableRect.getHeight();
 			meter->setBounds(juce::Rectangle<int>(usableRect.getRight() - visW, usableRect.getY(), visW, visW).reduced(universals->rectThicc));
 
@@ -1426,7 +1427,6 @@ private:
 		void paint(juce::Graphics& g) override;
 		void resized() override;
 
-		void visibilityChanged() override;
 
 
 		int getSlotIndex() const;
@@ -1454,7 +1454,7 @@ private:
 	};
 
 
-	class FXChainManager : public bdsp::RearrangableComponentManagerBase, public juce::AudioParameterInt::Listener
+	class FXChainManager : public bdsp::RearrangableComponentManagerBase, public juce::ComponentListener
 	{
 	public:
 
@@ -1474,37 +1474,31 @@ private:
 			setSingleDragHandleText(idx, s);
 		}
 
-		void parameterValueChanged(int parameterIndex, float newValue) override;
-
-		void parameterGestureChanged(int parameterIndex, bool gestureIsStarting) override;
 	private:
 
 		juce::Array<FXSlot*> fxSlots;
 
-		struct FXSorter
-		{
-			FXSorter(FlexFXAudioProcessor* p)
-			{
-				proc = p;
-			}
-			int compareElements(FXSlot* first, FXSlot* second)
-			{
-				int v1 = proc->generics[first->getFxSection()->getFXTypeIndex()]->indexParam.get();
-				int v2 = proc->generics[second->getFxSection()->getFXTypeIndex()]->indexParam.get();
-
-				return v1 - v2;
-			}
-
-		private:
-			FlexFXAudioProcessor* proc;
-		}fxSorter;
+		bdsp::OrderedListParameter* orderState = nullptr;
 
 		FlexFXAudioProcessorEditor* p = nullptr;
 
 		bdsp::Viewport vp;
 		bdsp::Component vpComp;
 
-		bool currentlyReording = false;
+		void componentMovedOrResized(juce::Component& component, bool wasMoved, bool wasResized) override
+		{
+			if (!vp.getViewArea().isEmpty())
+			{
+				for (auto c : fxSlots)
+				{
+					bool visible = vp.getViewArea().intersects(c->getBounds());
+					c->getFxSection()->setVisible(visible);
+				}
+			}
+
+		}
+
+
 	};
 
 	class AnimatedTitle : public bdsp::OpenGLComponent

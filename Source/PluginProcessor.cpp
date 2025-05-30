@@ -101,10 +101,7 @@ FlexFXAudioProcessor::FlexFXAudioProcessor()
 	chain->addProcessor(noise.get());
 
 
-	for (int i = 0; i < FXTypeNames.size(); ++i)
-	{
-		processorOrder.add(i);
-	}
+
 
 	init();
 
@@ -357,7 +354,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout FlexFXAudioProcessor::create
 	percentAtt.range.start = -0.95;
 	percentAtt.range.end = -percentAtt.range.start;
 	//FB
-	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "FlangerFeedbackID", "Flanger Feedback", 0, percentAtt));
+	out.add(std::make_unique<bdsp::ControlParameter>(&parameterAttributes, out, linkableControlIDs, linkableControlNames, "FlangerFeedbackID", "Flanger Feedback", 0.5, percentAtt));
 
 	createBypassAndMixParam(out, "Flanger", 7);
 
@@ -447,15 +444,17 @@ juce::AudioProcessorValueTreeState::ParameterLayout FlexFXAudioProcessor::create
 
 
 
+	//================================================================================================================================================================================================
 
-
-
+	fxOrderParam = std::make_unique<bdsp::OrderedListParameter>(hiddenDummyProcessor.getParameterLayout(), FXTypeNames.size(), juce::ParameterID("FXOrder"));
+	hiddenDummyProcessor.orderedParams.add(fxOrderParam.get());
 
 
 
 	return out;
 
 }
+
 
 void FlexFXAudioProcessor::createBypassAndMixParam(juce::AudioProcessorValueTreeState::ParameterLayout& layout, const juce::String& FXName, int defaultIndex)
 {
@@ -496,12 +495,8 @@ void FlexFXAudioProcessor::processBlockInit(juce::AudioBuffer<float>& buffer, ju
 	auto sidechainBuffer = getBusBuffer(buffer, true, 1);
 
 
-	for (int i = 0; i < generics.size(); ++i)
-	{
-		processorOrder.set(i, generics[i]->indexParam.get());
-	}
 
-	chain->reorderProcessors(processorOrder);
+	chain->reorderProcessors(fxOrderParam->getOrder());
 
 	fxLatency = 0;
 
@@ -1091,16 +1086,16 @@ bool FlexFXAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) co
 	return inNum && outNum && inActive && outActive && sidechain;
 }
 #endif
-
-void FlexFXAudioProcessor::reorderProcessors(int indexMoved, int indexMovedTo)
-{
-	processorOrder.move(indexMoved, indexMovedTo);
-	for (int i = 0; i < processorOrder.size(); ++i)
-	{
-		auto indexParam = generics[processorOrder[i]]->indexParam.getParameter();
-		indexParam->beginChangeGesture();
-		indexParam->setValueNotifyingHost(indexParam->convertTo0to1(i));
-		indexParam->endChangeGesture();
-	}
-}
+//
+//void FlexFXAudioProcessor::reorderProcessors(int indexMoved, int indexMovedTo)
+//{
+//	processorOrder.move(indexMoved, indexMovedTo);
+//	for (int i = 0; i < processorOrder.size(); ++i)
+//	{
+//		auto indexParam = generics[processorOrder[i]]->indexParam.getParameter();
+//		indexParam->beginChangeGesture();
+//		indexParam->setValueNotifyingHost(indexParam->convertTo0to1(i));
+//		indexParam->endChangeGesture();
+//	}
+//}
 
