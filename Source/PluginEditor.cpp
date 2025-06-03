@@ -134,7 +134,6 @@ FlexFXAudioProcessorEditor::FlexFXAudioProcessorEditor(FlexFXAudioProcessor& p)
 
 	topLevelComp->addComponent(fxSlotManager.get());
 
-
 	title = std::make_unique<AnimatedTitle>(this);
 
 

@@ -130,34 +130,35 @@ private:
 			current.initText();
 		}
 
+        void createMix(const juce::String& name, const bdsp::NamedColorsIdentifier& color)
+        {
+            createRangedCircleSlider(name + " Mix", mixSlider, color, "Mix");
+            mixSlider->setHintBarText("Dry/Wet mix of the " + name);
+        }
+        void createBypass(const juce::String& name, const bdsp::NamedColorsIdentifier& color)
+        {
+            
+            bypass = std::make_unique<bdsp::TextButton>(universals);
+            bypass->setClickingTogglesState(true);
+            bypass->setComponentID("BypassID");
+            bypass->onClick = [=]()
+            {
+                bypass->setHintBarText((bypass->getToggleState() ? "Enables" : "Disables") + juce::String(" the ") + name);
+            };
+            auto trimmed = name.removeCharacters(" ");
+
+            bypass->attach(*editor->audioProcessor.parameters.get(), trimmed + "BypassID");
+            bypass->backgroundDown = color.withMultipliedAlpha(universals->disabledAlpha);
+            bypass->backgroundUp = color;
+            bypass->setCorners(bdsp::CornerCurves(bdsp::CornerCurves::topLeft | bdsp::CornerCurves::bottomLeft));
+            bypass->setHasOutline(false);
+
+            indexParam = dynamic_cast<juce::AudioParameterInt*>(editor->audioProcessor.parameters->getParameter(trimmed + "IndexID"));
+        }
 		void createMixAndBypass(const juce::String& name, const bdsp::NamedColorsIdentifier& color)
 		{
-			createRangedCircleSlider(name + " Mix", mixSlider, color, "Mix");
-			mixSlider->setHintBarText("Dry/Wet mix of the " + name);
-
-			bypass = std::make_unique<bdsp::TextButton>(universals);
-			bypass->setClickingTogglesState(true);
-			bypass->setComponentID("BypassID");
-			bypass->onClick = [=]()
-			{
-				//for (auto* c : getChildren())
-				//{
-				//	if (c->getComponentID() != bypass->getComponentID())
-				//	{
-				//		c->setEnabled(!bypass->getToggleState());
-				//	}
-				//}
-				bypass->setHintBarText((bypass->getToggleState() ? "Enables" : "Disables") + juce::String(" the ") + name);
-			};
-			auto trimmed = name.removeCharacters(" ");
-
-			bypass->attach(*editor->audioProcessor.parameters.get(), trimmed + "BypassID");
-			bypass->backgroundDown = color.withMultipliedAlpha(universals->disabledAlpha);
-			bypass->backgroundUp = color;
-			bypass->setCorners(bdsp::CornerCurves(bdsp::CornerCurves::topLeft | bdsp::CornerCurves::bottomLeft));
-			bypass->setHasOutline(false);
-
-			indexParam = dynamic_cast<juce::AudioParameterInt*>(editor->audioProcessor.parameters->getParameter(trimmed + "IndexID"));
+            createMix(name,color);
+            createBypass(name,color);
 		}
 
 
@@ -1281,6 +1282,7 @@ private:
 			meter->getVis()->setColors(color);
 			meter->getVis()->setBackgroundColor(BDSP_COLOR_PURE_BLACK, BDSP_COLOR_BLACK);
 
+            
 			//================================================================================================================================================================================================
 
 
@@ -1365,7 +1367,7 @@ private:
 
 			//================================================================================================================================================================================================
 
-			createMixAndBypass("Noise", color);
+            createBypass("Noise", color);
 
 			//================================================================================================================================================================================================
 
@@ -1389,11 +1391,10 @@ private:
 			auto visW = 0.4;
 			auto w = 1 - visW;
 
-			gainSlider->setBounds(bdsp::shrinkRectangleToInt(usableRect.getProportion(juce::Rectangle<float>(0, 0, w / 4, 1)).reduced(universals->rectThicc)));
-			colorSlider->setBounds(bdsp::shrinkRectangleToInt(usableRect.getProportion(juce::Rectangle<float>(w / 4, 0, w / 4, 1)).reduced(universals->rectThicc)));
-			stereoSlider->setBounds(bdsp::shrinkRectangleToInt(usableRect.getProportion(juce::Rectangle<float>(w / 2, 0, w / 4, 1)).reduced(universals->rectThicc)));
-			mixSlider->setBounds(bdsp::shrinkRectangleToInt(usableRect.getProportion(juce::Rectangle<float>(3 * w / 4, 0, w / 4, 1)).reduced(universals->rectThicc)));
-
+			gainSlider->setBounds(bdsp::shrinkRectangleToInt(usableRect.getProportion(juce::Rectangle<float>(0, 0, w / 3, 1)).reduced(universals->rectThicc)));
+			colorSlider->setBounds(bdsp::shrinkRectangleToInt(usableRect.getProportion(juce::Rectangle<float>(w / 3, 0, w / 3, 1)).reduced(universals->rectThicc)));
+			stereoSlider->setBounds(bdsp::shrinkRectangleToInt(usableRect.getProportion(juce::Rectangle<float>(2*w / 3, 0, w / 3, 1)).reduced(universals->rectThicc)));
+		
 			visualizer->setBounds(bdsp::shrinkRectangleToInt(usableRect.getProportion(juce::Rectangle<float>(w, 0, visW, 1)).reduced(universals->rectThicc)));
 
 		}
