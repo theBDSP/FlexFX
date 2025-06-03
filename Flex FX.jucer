@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <JUCERPROJECT id="I0yhAd" name="Flex FX" projectType="audioplug" useAppConfig="0"
-              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" defines="BDSP_APP_NAME=&quot;Flex\ FX&quot;&#10;&#10;BDSP_PARAMETER_VERSION_NUMBER=1&#10;&#10;BDSP_DEFAULT_PLUGIN_WIDTH=750&#10;&#10;JUCE_DISABLE_CAUTIOUS_PARAMETER_ID_CHECKING=true&#10;&#10;BDSP_NUMBER_OF_MACROS=4&#10;&#10;BDSP_NUMBER_OF_LFOS=2&#10;&#10;BDSP_NUMBER_OF_ENVELOPE_FOLLOWERS=2&#10;&#10;BDSP_NUMBER_OF_SEQUENCERS=3&#10;&#10;BDSP_RATE_MIN=-4&#10;&#10;BDSP_RATE_MAX=4"
+              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" defines="JUCE_COREGRAPHICS_DRAW_ASYNC=1&#10;&#10;BDSP_APP_NAME=&quot;Flex\ FX&quot;&#10;&#10;BDSP_PARAMETER_VERSION_NUMBER=1&#10;&#10;BDSP_DEFAULT_PLUGIN_WIDTH=750&#10;&#10;JUCE_DISABLE_CAUTIOUS_PARAMETER_ID_CHECKING=true&#10;&#10;BDSP_NUMBER_OF_MACROS=4&#10;&#10;BDSP_NUMBER_OF_LFOS=2&#10;&#10;BDSP_NUMBER_OF_ENVELOPE_FOLLOWERS=2&#10;&#10;BDSP_NUMBER_OF_SEQUENCERS=3&#10;&#10;BDSP_RATE_MIN=-4&#10;&#10;BDSP_RATE_MAX=4"
               companyName="BDSP" companyWebsite="www.theBDSP.com" companyEmail="bdsp@thebdsp.com"
               pluginCharacteristicsValue="pluginEditorRequiresKeys" pluginManufacturerCode="BDSP"
               pluginCode="Flfx" pluginAAXCategory="8192">
