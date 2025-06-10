@@ -4,7 +4,6 @@
 #include "PluginProcessor.h"
 
 #include "font.h"
-#include <juce_audio_processors/processors/juce_AudioProcessorParameter.h>
 
 
 //==============================================================================
